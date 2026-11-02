@@ -1,11 +1,12 @@
-# JLIC UCLA TV: setup
+# UCLA Minyan: setup
 
-- **TV display:** `<site>/`
-- **Upside-down TV:** `<site>/flipped/`
+- **Sign-up site:** `<site>/`
+- **TV display:** `<site>/tv/`
+- **Upside-down TV:** `<site>/tv/flipped/`
 - **Dashboard:** `<site>/admin/`
-- **Try the dashboard without signing in:** `<site>/admin/?demo`. Changes stay on your own device.
+- **Try without signing in:** add `?demo`. Changes stay on your own device.
 
-`<site>` is `https://arshiakohanteb.github.io/jlic-ucla-tv` until a custom domain is added.
+`<site>` is `https://uclaminyan.com` once the domain is connected.
 
 ## One-time Firebase setup (about 15 minutes)
 
@@ -21,7 +22,9 @@ This site has its own Firebase project and shares nothing with any other TV.
 
 ## Are we on?
 
-The top of the dashboard's Overview page holds the night-before controls: votes so far, still voting / we're on / not today, the time and the room. They only count for that date, so the board starts each day at "Not confirmed".
+People sign up at the site, and the count, the TV and the dashboard update on their own. Ten sign-ups turns a minyan to "We're on". The top of the dashboard's Overview page lets an admin create a one-time minyan, remove someone, add people who aren't on the site, change the time or room, or force "We're on" / "Not today".
+
+Sign-ups show a first name and last initial, and anyone can read those, because the TV reads them without an account.
 
 ## Editing
 

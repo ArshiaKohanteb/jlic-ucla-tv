@@ -107,7 +107,9 @@ function ItemList({ items, setItems, mode, z, newItem, addLabel }) {
 }
 
 function Weekday({ tv, z }) {
-  const [items, setItems] = useDraft(tv.minyanim, (v) => writeTv("minyanim", v));
+  // One-time minyanim are managed from Overview and kept out of the weekly list.
+  const oneTime = tv.minyanim.filter((m) => m.date);
+  const [items, setItems] = useDraft(tv.minyanim.filter((m) => !m.date), (v) => writeTv("minyanim", [...v, ...oneTime]));
   return (
     <Card title="Weekday minyanim" subtitle="Each time can run on any days, at a set time or relative to a zman. On Yom Tov these are hidden automatically." icon={Clock}>
       <ItemList items={items} setItems={setItems} mode="daily" z={z} addLabel="Add a minyan"

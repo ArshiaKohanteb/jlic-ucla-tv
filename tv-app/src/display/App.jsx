@@ -7,6 +7,7 @@ import { useHebrewFont } from "../shared/fonts.js";
 import ScheduleScene, { ShabbatBoard } from "./scenes/ScheduleScene.jsx";
 import { Rail } from "./scenes/board.jsx";
 import { upcomingMinyanim } from "../shared/minyan.js";
+import { subscribeSignups } from "../shared/signups.js";
 import { FlyerScene, AnnouncementScene } from "./scenes/ContentScenes.jsx";
 import CommunityScene, { pickCollage } from "./scenes/CommunityScene.jsx";
 import DonateScene from "./scenes/DonateScene.jsx";
@@ -37,7 +38,9 @@ export default function App() {
   setHour24(tv?.settings?.clock24);
   useHebrewFont(tv?.settings?.hebrewFont);
   const sched = useMemo(() => (tv ? buildSchedule(tv, z, now, tz) : null), [tv, z, now, tz]);
-  const minyanim = useMemo(() => (tv ? upcomingMinyanim(tv, z, now, tz) : []), [tv, z, now, tz]);
+  const [signups, setSignups] = useState({});
+  useEffect(() => subscribeSignups(today, setSignups, () => {}), [today]);
+  const minyanim = useMemo(() => (tv ? upcomingMinyanim(tv, z, now, tz, 2, signups) : []), [tv, z, now, tz, signups]);
   // Friday afternoon through Shabbat the Rabbi's Shabbat list takes over the board.
   const weekday = localInfo(now, tz);
   const shabbatView = !!sched && (sched.inPeriod || weekday.weekday === 6 || (weekday.weekday === 5 && weekday.hour >= 12) || (!minyanim.length && sched.groups.length > 0));

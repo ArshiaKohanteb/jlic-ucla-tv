@@ -1,0 +1,3 @@
+{ "name": "UCLA Minyan", "short_name": "Minyan", "start_url": ".", "scope": ".", "display": "standalone",
+  "background_color": "#FFFFFF", "theme_color": "#FFFFFF",
+  "icons": [{ "src": "app-icon.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }] }

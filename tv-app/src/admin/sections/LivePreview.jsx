@@ -10,7 +10,7 @@ const SMALL = typeof window !== "undefined" && window.matchMedia("(max-width: 10
 export default function LivePreview({ tv, inline = false, controls = true }) {
   const [hold, setHold] = useState("");
   const [show, setShow] = useState(!SMALL);
-  const src = `${import.meta.env.BASE_URL}?preview${isDemo() ? "&demo" : ""}${hold ? `&hold=${hold}` : ""}${SMALL ? "&lite" : ""}`;
+  const src = `${import.meta.env.BASE_URL}tv/?preview${isDemo() ? "&demo" : ""}${hold ? `&hold=${hold}` : ""}${SMALL ? "&lite" : ""}`;
   const s = tv.settings;
   return (
     <>

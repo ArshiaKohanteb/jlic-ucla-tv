@@ -9,8 +9,9 @@ import { can } from "../access.js";
 import LiveMinyan from "./LiveMinyan.jsx";
 
 const SCREENS = [
-  { url: `${location.origin}${import.meta.env.BASE_URL}`, label: "Normal screen" },
-  { url: `${location.origin}${import.meta.env.BASE_URL}flipped/`, label: "Upside-down TV" },
+  { url: `${location.origin}${import.meta.env.BASE_URL}tv/`, label: "TV" },
+  { url: `${location.origin}${import.meta.env.BASE_URL}tv/flipped/`, label: "Upside-down TV" },
+  { url: `${location.origin}${import.meta.env.BASE_URL}`, label: "Sign-up site for everyone" },
 ];
 
 const inTime = (m) => (m < 60 ? `in ${m} min` : `in ${Math.floor(m / 60)} hr${m % 60 ? ` ${m % 60} min` : ""}`);
