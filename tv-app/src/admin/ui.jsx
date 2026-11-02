@@ -111,6 +111,34 @@ export function Modal({ title, onClose, children, footer }) {
   );
 }
 
+const pad2 = (n) => String(n).padStart(2, "0");
+
+// Hour, minute and AM/PM as separate controls. A native time box reports nothing
+// until AM/PM is filled in too, so "8:30" looked entered but never saved.
+function ClockInput({ value, onChange }) {
+  const [hh, mm] = value ? value.split(":").map(Number) : [];
+  const [spare, setSpare] = useState({ minute: 0, ampm: "AM" });
+  const hour = value ? hh % 12 || 12 : "";
+  const minute = value ? mm : spare.minute;
+  const ampm = value ? (hh >= 12 ? "PM" : "AM") : spare.ampm;
+  const emit = (h, m, a) => onChange(`${pad2((h % 12) + (a === "PM" ? 12 : 0))}:${pad2(m)}`);
+  return (
+    <div className="clock-input">
+      <select className="input" aria-label="Hour" value={hour} onChange={(e) => (e.target.value ? emit(Number(e.target.value), minute, ampm) : onChange(""))}>
+        <option value="">Hour</option>
+        {[12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((h) => <option key={h} value={h}>{h}</option>)}
+      </select>
+      <select className="input" aria-label="Minute" value={minute} onChange={(e) => {
+        const m = Number(e.target.value);
+        if (value) emit(hour, m, ampm); else setSpare({ ...spare, minute: m });
+      }}>
+        {Array.from({ length: 60 }, (_, m) => <option key={m} value={m}>{pad2(m)}</option>)}
+      </select>
+      <Segmented small value={ampm} onChange={(a) => (value ? emit(hour, minute, a) : setSpare({ ...spare, ampm: a }))} options={[{ value: "AM", label: "AM" }, { value: "PM", label: "PM" }]} />
+    </div>
+  );
+}
+
 // Edit a schedule time: a fixed clock time, or minutes before/after a zman.
 export function TimeEditor({ value, onChange, allowShabbat, z, dateKey }) {
   const v = value || { type: "fixed", value: "" };
@@ -126,7 +154,7 @@ export function TimeEditor({ value, onChange, allowShabbat, z, dateKey }) {
         options={[{ value: "fixed", label: "Set time" }, { value: "zman", label: "Based on zman" }]}
       />
       {v.type === "fixed" ? (
-        <input type="time" className="input" value={v.value || ""} onChange={(e) => set({ value: e.target.value })} />
+        <ClockInput value={v.value || ""} onChange={(value) => set({ value })} />
       ) : (
         <div className="zman-row">
           <Stepper value={Math.abs(off)} step={5} max={180} suffix="min" onChange={(n) => set({ offset: off < 0 ? -n : n })} />
