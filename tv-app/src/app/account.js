@@ -22,7 +22,7 @@ export function watchAccount(cb) {
     if (!user) return cb(null);
     let saved = null;
     try { saved = (await get(ref(db, `users/${user.uid}`))).val(); } catch { /* rules not published yet */ }
-    cb({ uid: user.uid, email: user.email, name: saved?.name || user.displayName || "", counts: saved?.counts !== false });
+    cb({ uid: user.uid, email: user.email, name: saved?.name || user.displayName || "", counts: saved?.counts !== false, phone: saved?.phone || "" });
   });
 }
 
@@ -49,6 +49,14 @@ export function saveProfile(user, patch) {
 export function leave() {
   if (isDemo()) { localStorage.removeItem("jlic-app-demo-user"); location.reload(); return; }
   return signOut(auth);
+}
+
+// Any way someone types it, stored so a text can reach it.
+export function cleanPhone(v) {
+  const d = String(v || "").replace(/\D/g, "");
+  if (d.length === 10) return "+1" + d;
+  if (d.length === 11 && d[0] === "1") return "+" + d;
+  return d.length > 7 ? "+" + d : "";
 }
 
 // "Ariel Kohanteb" becomes "Ariel K." The TV shows these, so full names stay private.

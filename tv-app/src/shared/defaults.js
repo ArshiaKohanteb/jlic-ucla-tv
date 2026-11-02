@@ -46,7 +46,7 @@ export const DEFAULT_SETTINGS = {
   donate: {
     venmo: "@oujlicwest",
     zelle: "aryehkaplan1@gmail.com",
-    zelleQr: "",
+    zelleQr: "https://enroll.zellepay.com/",
     website: "oujlicwest.com",
   },
   // Screen elements

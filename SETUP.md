@@ -24,6 +24,8 @@ This site has its own Firebase project and shares nothing with any other TV.
 
 People sign up at the site, and the count, the TV and the dashboard update on their own. Ten sign-ups turns a minyan to "We're on". The top of the dashboard's Overview page lets an admin create a one-time minyan, remove someone, add people who aren't on the site, change the time or room, or force "We're on" / "Not today".
 
+The site only offers tomorrow's minyanim (until 3 AM, the coming morning). Each minyan on Overview has **Text everyone signed up**, which opens your phone's Messages app with their numbers and the words filled in.
+
 Sign-ups show a first name and last initial, and anyone can read those, because the TV reads them without an account.
 
 ## Editing

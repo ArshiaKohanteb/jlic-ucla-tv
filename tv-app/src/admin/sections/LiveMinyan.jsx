@@ -5,7 +5,10 @@ import { uid } from "../../shared/defaults.js";
 import { writeTv } from "../../shared/store.js";
 import { minyanCalendar, liveFor } from "../../shared/minyan.js";
 import { subscribeSignups, removeSignup } from "../../shared/signups.js";
-import { TIMEZONE, formatHHMM } from "../../shared/schedule.js";
+import { get, ref } from "firebase/database";
+import { db } from "../../shared/firebase.js";
+import { isDemo } from "../../shared/store.js";
+import { TIMEZONE, formatHHMM, formatEpoch } from "../../shared/schedule.js";
 
 const ROOMS = ["Beit Midrash", "Prayer Room", "Law School 2477"];
 
@@ -35,6 +38,37 @@ function Row({ o, items, setItems }) {
       <Field label="Room">
         <input className="input" list="minyan-rooms" placeholder="Beit Midrash" value={live.place || ""} onChange={(e) => put({ place: e.target.value })} />
       </Field>
+      <TextEveryone o={o} onSent={(message) => put({ message })} />
+    </div>
+  );
+}
+
+const IOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+const smsLink = (numbers, body) => (IOS
+  ? `sms:/open?addresses=${numbers.join(",")}&body=${encodeURIComponent(body)}`
+  : `sms:${numbers.join(",")}?body=${encodeURIComponent(body)}`);
+
+// Opens the admin's own Messages app with everyone signed up and the words filled in.
+function TextEveryone({ o, onSent }) {
+  const when = o.epoch != null ? `at ${formatEpoch(o.epoch, TIMEZONE).time} ${formatEpoch(o.epoch, TIMEZONE).ampm}` : "";
+  const [body, setBody] = useState(`Minyan is on! ${o.name} ${o.day.toLowerCase()} ${when}${o.place ? ` in the ${o.place}` : ""}.`.replace(/\s+/g, " "));
+  const [numbers, setNumbers] = useState(null);
+  const key = o.people.map((p) => p.uid).join();
+  useEffect(() => {
+    let live = true;
+    if (isDemo()) { setNumbers(o.people.map((_, i) => `+1310555010${i}`)); return; }
+    Promise.all(o.people.map((p) => get(ref(db, `users/${p.uid}/phone`)).then((s) => s.val()).catch(() => null)))
+      .then((list) => live && setNumbers(list.filter(Boolean)));
+    return () => { live = false; };
+  }, [key]);
+  if (!o.people.length) return null;
+  const found = numbers?.length || 0;
+  return (
+    <div className="live-text">
+      <Field label="Text everyone signed up" hint={numbers ? `${found} of ${o.people.length} have a phone number` : "Finding numbers…"}>
+        <textarea className="input" rows={2} value={body} onChange={(e) => setBody(e.target.value)} />
+      </Field>
+      {found > 0 && <a className="btn btn-primary live-send" href={smsLink(numbers, body)} onClick={() => onSent(body)}>Open in Messages</a>}
     </div>
   );
 }

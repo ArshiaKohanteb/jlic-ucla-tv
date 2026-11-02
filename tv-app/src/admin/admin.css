@@ -424,3 +424,5 @@ form .access-pick { padding-left: 0; }
 .live-people li { display: inline-flex; align-items: center; gap: 4px; padding: 4px 6px 4px 12px; border-radius: 999px; background: var(--royal-soft); font-size: 13px; font-weight: 600; }
 .live-people button { display: grid; place-items: center; width: 24px; height: 24px; }
 .live-new { padding: 16px; border-radius: 16px; background: var(--panel-2); }
+.live-text { display: grid; gap: 10px; }
+.live-send { display: inline-flex; justify-content: center; text-decoration: none; }

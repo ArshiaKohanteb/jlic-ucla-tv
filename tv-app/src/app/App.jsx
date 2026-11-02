@@ -1,87 +1,81 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Check, Clock3, Share2, CalendarPlus, X, Users } from "lucide-react";
+import { Check, X } from "lucide-react";
 import { useTv, useZmanim, useNow } from "../display/hooks.js";
+import { skyGradient } from "../display/sky.js";
 import { startZmanimEngine } from "../shared/bootstrap.js";
-import { TIMEZONE, formatEpoch, localInfo } from "../shared/schedule.js";
+import { TIMEZONE, formatEpoch, localInfo, addDays, zonedEpoch } from "../shared/schedule.js";
 import { minyanCalendar, TEN } from "../shared/minyan.js";
 import { subscribeSignups, saveSignup, patchSignup, removeSignup } from "../shared/signups.js";
-import { watchAccount, signInGoogle, signInEmail, createEmail, resetPassword, saveProfile, leave, shortName, friendlyError } from "./account.js";
+import { watchAccount, signInGoogle, signInEmail, createEmail, resetPassword, saveProfile, leave, shortName, cleanPhone, friendlyError } from "./account.js";
 
 const clock = (epoch) => {
   if (epoch == null) return "Time to come";
   const f = formatEpoch(epoch, TIMEZONE);
-  return `${f.time} ${f.ampm}`;
+  return { time: f.time, ampm: f.ampm };
 };
-const place = (o) => [o.place, o.note].filter(Boolean).join(" · ");
-
-function headline(o) {
-  if (o.off) return "Not happening";
-  if (o.started) return "Davening now";
-  if (o.on) return "We're on";
-  return o.need === 1 ? "One more and we're on" : `${o.need} more to go`;
-}
-
-function Dots({ count }) {
-  return <div className="dots" role="img" aria-label={`${count} of ${TEN}`}>{Array.from({ length: TEN }, (_, i) => <i key={i} className={i < count ? "in" : ""} />)}</div>;
-}
-
-const calendarLink = (o) => {
-  const stamp = (t) => new Date(t).toISOString().replace(/[-:]|\.\d+/g, "");
-  const p = new URLSearchParams({ action: "TEMPLATE", text: `${o.name} at Hillel`, dates: `${stamp(o.epoch)}/${stamp(o.epoch + 30 * 60_000)}`, location: o.place || "Hillel at UCLA" });
-  return `https://calendar.google.com/calendar/render?${p}`;
+const Time = ({ epoch }) => {
+  const c = clock(epoch);
+  return typeof c === "string" ? <span className="time">{c}</span> : <span className="time">{c.time}<small>{c.ampm}</small></span>;
 };
 
-function share(o) {
-  const text = `${o.name} ${o.day.toLowerCase()} at ${clock(o.epoch)}. ${o.on ? "We're on!" : `${o.need} more needed.`}`;
-  const url = location.origin + location.pathname;
-  if (navigator.share) navigator.share({ text, url }).catch(() => {});
-  else navigator.clipboard?.writeText(`${text} ${url}`);
+// Sign-ups are for the next day. The chat keeps going past midnight, so until
+// 3 AM "tomorrow" still means the morning people are about to wake up for.
+function target(now) {
+  const { dateKey, hour } = localInfo(now, TIMEZONE);
+  return hour < 3 ? { date: dateKey, word: "Today" } : { date: addDays(dateKey, 1), word: "Tomorrow" };
+}
+const longDate = (date) => new Intl.DateTimeFormat("en-US", { weekday: "long", month: "long", day: "numeric", timeZone: "UTC" }).format(new Date(date + "T12:00:00Z"));
+
+// A rough sky for the phone, so the zmanim engine never has to run just for the colour.
+function phoneSky(now) {
+  const { dateKey } = localInfo(now, TIMEZONE);
+  const at = (t) => zonedEpoch(dateKey, t, TIMEZONE);
+  return skyGradient({ sunrise: at("06:30"), hatzot: at("12:00"), sunset: at("17:30"), tzet: at("17:45") }, now);
 }
 
-function Next({ o, mine, onJoin, onLeave, onLate }) {
+function names(o) {
+  const first = o.people.map((p) => p.name.split(" ")[0]);
+  if (!first.length) return "Be the first";
+  if (first.length <= 3) return first.join(", ");
+  return `${first.slice(0, 3).join(", ")} and ${first.length - 3 + o.extra} more`;
+}
+
+function Marks({ count }) {
+  return <div className="marks" aria-hidden="true">{Array.from({ length: TEN }, (_, i) => <i key={i} className={i < count ? "in" : ""} />)}</div>;
+}
+
+// The whole site: tap the minyan you're coming to.
+function Choice({ o, mine, onToggle }) {
+  const status = o.off ? "Not happening" : o.on ? "We're on" : `${o.count} of ${TEN}`;
   return (
-    <section className={`next ${o.on ? "on" : ""} ${o.off ? "off" : ""}`}>
-      <p className="when">{o.day}</p>
-      <h1 dir="auto">{o.name}</h1>
-      <p className="time">{clock(o.epoch)}</p>
-      {place(o) && <p className="where" dir="auto">{place(o)}</p>}
-      <Dots count={o.on ? TEN : o.count} />
-      <p className="status">{headline(o)}</p>
-      {!o.off && (mine ? (
-        <>
-          <button className="big is-in" onClick={onLeave}><Check size={22} strokeWidth={3} />You're in</button>
-          <div className="sub-actions">
-            <button className={mine.late ? "lit" : ""} onClick={onLate}><Clock3 size={17} />{mine.late ? "Running late" : "I'll be late"}</button>
-            <button onClick={onLeave}><X size={17} />Can't make it</button>
-          </div>
-        </>
-      ) : <button className="big" onClick={onJoin}>I'm in</button>)}
-      {o.people.length > 0 && (
-        <ul className="people">
-          {o.people.map((p) => <li key={p.uid} className={p.late ? "late" : ""}>{p.name}{p.late ? " · late" : ""}</li>)}
-          {o.extra > 0 && <li className="more">+{o.extra}</li>}
-        </ul>
-      )}
-      <div className="tools">
-        <button onClick={() => share(o)}><Share2 size={17} />Share</button>
-        {o.epoch != null && <a href={calendarLink(o)} target="_blank" rel="noreferrer"><CalendarPlus size={17} />Calendar</a>}
-      </div>
-    </section>
+    <button className={`choice ${mine ? "is-in" : ""} ${o.on ? "is-on" : ""}`} disabled={o.off} aria-pressed={!!mine} onClick={onToggle}>
+      <span className="choice-top">
+        <span className="name" dir="auto">{o.name}</span>
+        <span className="tick"><Check size={26} strokeWidth={3} /></span>
+      </span>
+      <Time epoch={o.epoch} />
+      {o.place && <span className="place" dir="auto">{o.place}</span>}
+      <span className="choice-foot">
+        {!o.on && !o.off && <Marks count={o.count} />}
+        <span className="status">{status}</span>
+      </span>
+      <span className="who" dir="auto">{mine ? (o.people.length > 1 ? `You and ${o.people.length - 1 + o.extra} others` : "You're the first") : names(o)}</span>
+      {o.message && <span className="message" dir="auto">{o.message}</span>}
+    </button>
   );
 }
 
-function Row({ o, mine, onToggle }) {
+// Someone already in for today can still say they're late or can't make it.
+function TodayRow({ o, mine, onLate, onOut }) {
   return (
-    <li className="row">
-      <div className="row-text">
-        <b dir="auto">{o.name}</b>
-        <span>{o.day} · {clock(o.epoch)}{o.place ? ` · ${o.place}` : ""}</span>
+    <section className="today">
+      <p>You're in for <b>{o.name}</b> today{o.epoch != null ? ` at ${clock(o.epoch).time} ${clock(o.epoch).ampm}` : ""}</p>
+      {o.message && <p className="today-note" dir="auto">{o.message}</p>}
+      <div>
+        <button className={mine.late ? "lit" : ""} onClick={onLate}>{mine.late ? "Running late" : "I'll be late"}</button>
+        <button onClick={onOut}>Can't make it</button>
       </div>
-      <span className="row-count">{o.off ? "Off" : o.on ? "On" : `${o.count}/${TEN}`}</span>
-      <button className={`tick ${mine ? "is-in" : ""}`} disabled={o.off} aria-label={`${mine ? "Leave" : "Join"} ${o.name}, ${o.day}`} aria-pressed={!!mine} onClick={onToggle}>
-        <Check size={20} strokeWidth={3} />
-      </button>
-    </li>
+    </section>
   );
 }
 
@@ -101,7 +95,7 @@ function SignIn({ onClose }) {
   const [f, setF] = useState({ name: "", email: "", password: "" });
   const [msg, setMsg] = useState("");
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
-  const run = (job) => job().catch((e) => setMsg(friendlyError(e)));
+  const run = (job) => Promise.resolve().then(job).catch((e) => setMsg(friendlyError(e)));
   const submit = (e) => {
     e.preventDefault();
     setMsg("");
@@ -109,24 +103,21 @@ function SignIn({ onClose }) {
   };
   return (
     <Sheet onClose={onClose}>
-      <h2>Join the minyan</h2>
-      <p className="sheet-sub">Sign in once and you're set on this phone.</p>
-      {mode === "start" && (
+      <h2>Welcome</h2>
+      <p className="sheet-sub">You'll only do this once.</p>
+      {mode === "start" ? (
         <>
-          <button className="big" onClick={() => run(signInGoogle)}>Continue with Google</button>
+          <button className="primary" onClick={() => run(signInGoogle)}>Continue with Google</button>
           <button className="plain" onClick={() => setMode("email")}>Use email instead</button>
         </>
-      )}
-      {mode !== "start" && (
+      ) : (
         <form onSubmit={submit}>
           {mode === "new" && <label>Your name<input required autoComplete="name" value={f.name} onChange={set("name")} /></label>}
           <label>Email<input required type="email" autoComplete="email" value={f.email} onChange={set("email")} /></label>
           <label>Password<input required type="password" minLength={6} autoComplete={mode === "new" ? "new-password" : "current-password"} value={f.password} onChange={set("password")} /></label>
-          <button className="big" type="submit">{mode === "new" ? "Create account" : "Sign in"}</button>
-          <div className="sheet-links">
-            <button type="button" className="plain" onClick={() => { setMsg(""); setMode(mode === "new" ? "email" : "new"); }}>{mode === "new" ? "I have an account" : "New here? Create an account"}</button>
-            {mode === "email" && <button type="button" className="plain" onClick={() => (f.email ? resetPassword(f.email).then(() => setMsg("Check your email for a reset link."), () => setMsg("Check that email address.")) : setMsg("Enter your email first."))}>Forgot password?</button>}
-          </div>
+          <button className="primary" type="submit">{mode === "new" ? "Create account" : "Sign in"}</button>
+          <button type="button" className="plain" onClick={() => { setMsg(""); setMode(mode === "new" ? "email" : "new"); }}>{mode === "new" ? "I have an account" : "New here? Create an account"}</button>
+          {mode === "email" && <button type="button" className="plain" onClick={() => (f.email ? resetPassword(f.email).then(() => setMsg("Check your email for a reset link."), () => setMsg("Check that email address.")) : setMsg("Enter your email first."))}>Forgot password?</button>}
         </form>
       )}
       {msg && <p className="sheet-msg" role="alert">{msg}</p>}
@@ -134,16 +125,34 @@ function SignIn({ onClose }) {
   );
 }
 
+function AskPhone({ onSave, onSkip }) {
+  const [v, setV] = useState("");
+  const good = cleanPhone(v);
+  return (
+    <Sheet onClose={onSkip}>
+      <h2>You're in</h2>
+      <p className="sheet-sub">What's your number? We'll text you when minyan is on.</p>
+      <form onSubmit={(e) => { e.preventDefault(); if (good) onSave(good); }}>
+        <label>Phone<input autoFocus type="tel" autoComplete="tel" inputMode="tel" value={v} onChange={(e) => setV(e.target.value)} /></label>
+        <button className="primary" type="submit" disabled={!good}>Done</button>
+      </form>
+      <button className="plain" onClick={onSkip}>Not now</button>
+    </Sheet>
+  );
+}
+
 function Profile({ user, onSave, onClose }) {
   const [name, setName] = useState(user.name);
+  const [phone, setPhone] = useState(user.phone || "");
   const [counts, setCounts] = useState(user.counts !== false);
   return (
     <Sheet onClose={onClose}>
       <h2>Your account</h2>
-      <form onSubmit={(e) => { e.preventDefault(); onSave({ name: name.trim() || user.name, counts }); }}>
+      <form onSubmit={(e) => { e.preventDefault(); onSave({ name: name.trim() || user.name, phone: cleanPhone(phone), counts }); }}>
         <label>Your name<input required value={name} onChange={(e) => setName(e.target.value)} /></label>
+        <label>Phone<input type="tel" autoComplete="tel" value={phone} onChange={(e) => setPhone(e.target.value)} /></label>
         <label className="check"><input type="checkbox" checked={counts} onChange={(e) => setCounts(e.target.checked)} />Count me toward the ten</label>
-        <button className="big" type="submit">Save</button>
+        <button className="primary" type="submit">Save</button>
       </form>
       <button className="plain" onClick={leave}>Sign out</button>
     </Sheet>
@@ -162,21 +171,25 @@ export default function App() {
   const [toast, setToast] = useState("");
 
   useEffect(() => watchAccount(setUser), []);
-  useEffect(() => subscribeSignups(today, setSignups, () => setToast("Couldn't load sign-ups.")), [today]);
-
-  // The zmanim engine is heavy on a phone, so it only runs when a minyan's time depends on it.
+  useEffect(() => subscribeSignups(today, setSignups, () => {}), [today]);
   const needsZmanim = !!tv?.minyanim?.some((m) => m.time?.type === "zman");
   useEffect(() => { if (needsZmanim) startZmanimEngine(); }, [needsZmanim]);
+  useEffect(() => { document.body.style.background = phoneSky(now); }, [now]);
 
-  const list = useMemo(() => (tv ? minyanCalendar(tv, z, now, TIMEZONE, signups) : []), [tv, z, now, signups]);
+  const goal = target(now);
+  const all = useMemo(() => (tv ? minyanCalendar(tv, z, now, TIMEZONE, signups, 3) : []), [tv, z, now, signups]);
+  const choices = all.filter((o) => o.date === goal.date);
+  const mineOf = (o) => (user ? o.people.find((p) => p.uid === user.uid) : null);
+  const todayRows = all.filter((o) => o.date === today && o.date !== goal.date && mineOf(o));
 
   const fail = () => { setToast("That didn't save. Try again."); setTimeout(() => setToast(""), 3500); };
   const join = (o, who = user) => {
     if (!who) { setPending(o); setSheet("signin"); return; }
+    navigator.vibrate?.(12);
     saveSignup(o.date, o.id, who.uid, { name: shortName(who.name), counts: who.counts !== false, at: Date.now() }).catch(fail);
+    if (!who.phone && !sessionStorage.getItem("asked-phone")) setSheet("phone");
   };
   const out = (o) => removeSignup(o.date, o.id, user.uid).catch(fail);
-  const mineOf = (o) => (user ? o.people.find((p) => p.uid === user.uid) : null);
 
   // Finish the tap that started the sign-in.
   useEffect(() => {
@@ -184,50 +197,37 @@ export default function App() {
     if (user && pending) { join(pending, user); setPending(null); }
   }, [user]);
 
-  const lead = list[0];
-  const initial = (user?.name || "?")[0].toUpperCase();
+  const patch = (changes) => saveProfile(user, changes).then(() => { setUser({ ...user, ...changes }); setSheet(null); }, fail);
+  const skipPhone = () => { sessionStorage.setItem("asked-phone", "1"); setSheet(null); };
 
   return (
     <div className="app">
       <header className="top">
         <img src={`${import.meta.env.BASE_URL}logo.png`} alt="JLIC" />
-        <span>UCLA Minyan</span>
-        {user === undefined ? null : user
-          ? <button className="me" aria-label="Your account" onClick={() => setSheet("profile")}>{initial}</button>
-          : <button className="login" onClick={() => setSheet("signin")}>Sign in</button>}
+        <img className="hillel" src={`${import.meta.env.BASE_URL}hillel-bw.png`} alt="Hillel at UCLA" />
+        {user && <button className="me" aria-label="Your account" onClick={() => setSheet("profile")}>{(user.name || "?")[0].toUpperCase()}</button>}
       </header>
 
-      {!tv ? <p className="quiet">Loading…</p> : !lead ? (
-        <section className="next empty"><Users size={34} /><h1>No minyan posted yet</h1></section>
-      ) : (
-        <>
-          <Next o={lead} mine={mineOf(lead)} onJoin={() => join(lead)} onLeave={() => out(lead)}
-            onLate={() => patchSignup(lead.date, lead.id, user.uid, { late: !mineOf(lead).late }).catch(fail)} />
-          {list.length > 1 && (
-            <section className="soon">
-              <h2>Coming up</h2>
-              <ul>
-                {list.slice(1, 7).map((o) => {
-                  const mine = mineOf(o);
-                  return <Row key={o.id + o.date} o={o} mine={mine} onToggle={() => (mine ? out(o) : join(o))} />;
-                })}
-              </ul>
-            </section>
-          )}
-        </>
-      )}
-
-      <footer className="foot">
-        <img src={`${import.meta.env.BASE_URL}hillel.png`} alt="Hillel at UCLA" />
-      </footer>
+      <main>
+        <h1>{goal.word}</h1>
+        <p className="date">{longDate(goal.date)}</p>
+        {todayRows.map((o) => (
+          <TodayRow key={o.id} o={o} mine={mineOf(o)} onOut={() => out(o)}
+            onLate={() => patchSignup(o.date, o.id, user.uid, { late: !mineOf(o).late }).catch(fail)} />
+        ))}
+        {!tv ? null : choices.length ? (
+          <div className="choices">
+            {choices.map((o) => {
+              const mine = mineOf(o);
+              return <Choice key={o.id} o={o} mine={mine} onToggle={() => (mine ? out(o) : join(o))} />;
+            })}
+          </div>
+        ) : <p className="rest">No minyan to sign up for yet.</p>}
+      </main>
 
       {sheet === "signin" && <SignIn onClose={() => { setSheet(null); setPending(null); }} />}
-      {sheet === "profile" && user && (
-        <Profile user={user} onClose={() => setSheet(null)} onSave={(patch) => {
-          const next = { ...user, ...patch };
-          saveProfile(user, patch).then(() => { setUser(next); setSheet(null); }, fail);
-        }} />
-      )}
+      {sheet === "phone" && <AskPhone onSkip={skipPhone} onSave={(phone) => patch({ phone })} />}
+      {sheet === "profile" && user && <Profile user={user} onClose={() => setSheet(null)} onSave={patch} />}
       {toast && <div className="toast" role="status">{toast}</div>}
     </div>
   );

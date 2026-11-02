@@ -37,6 +37,7 @@ function read(m, date, z, tz, now, today, signups) {
     people,
     extra,
     place: live?.place || m.place || "",
+    message: live?.message || "",
     note: m.note || "",
     day: dayLabel(date, today),
     need: TEN - count,
@@ -50,7 +51,7 @@ export function statusWords(o) {
   if (o.started) return { big: "Davening now", small: "Come on in" };
   if (o.on) return { big: "We're on", small: "Super optimal" };
   if (!o.known) return { big: "Not confirmed", small: "Sign up at uclaminyan.com" };
-  const small = o.need === 1 ? "Who's the final tzadik?" : o.need === 5 ? "Halfway there" : `${o.need} more at uclaminyan.com`;
+  const small = o.need === 1 ? "Who's the final tzadik?" : o.need === 5 ? "Halfway there" : `${o.need} more`;
   return { big: `${o.need * 10}% to go`, small };
 }
 
@@ -73,6 +74,18 @@ export function minyanCalendar(tv, z, now = Date.now(), tz = TIMEZONE, signups =
   }
   const at = (o) => o.epoch ?? zonedEpoch(o.date, "23:59", tz);
   return found.sort((a, b) => at(a) - at(b));
+}
+
+// When it starts, said the way someone would say it across the room.
+export function whenWords(o, now) {
+  if (o.off || o.epoch == null || o.day !== "Today") return { text: o.day, soon: false };
+  const m = Math.ceil((o.epoch - now) / 60_000);
+  if (m <= 0) return { text: o.on ? "Davening now" : "Now", soon: true };
+  if (m > 120) return { text: o.day, soon: false };
+  if (m === 1) return { text: "In 1 minute", soon: true };
+  if (m < 60) return { text: `In ${m} minutes`, soon: m <= 15 };
+  const h = Math.floor(m / 60), r = m % 60;
+  return { text: `In ${h} hr${r ? ` ${r} min` : ""}`, soon: false };
 }
 
 // The next time each minyan comes up.

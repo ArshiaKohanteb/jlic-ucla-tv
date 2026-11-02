@@ -33,3 +33,23 @@ export function skyGradient(day, now) {
   }
   return `linear-gradient(180deg, ${colors[0]} 0%, ${colors[1]} 62%, ${colors[2]} 100%)`;
 }
+
+// How dark it is, 0 by day to 1 at full night: the stars fade with this.
+export function nightness(day, now) {
+  if (!day?.sunrise || !day?.sunset) return 1;
+  const M = 60_000;
+  const clamp = (v) => Math.min(1, Math.max(0, v));
+  if (now < day.hatzot || now < day.sunrise) return clamp((day.sunrise - 15 * M - now) / (45 * M));
+  return clamp((now - day.sunset - 5 * M) / (45 * M));
+}
+
+// Tonight's real phase, 0 at new moon and .5 at full, from one known new moon.
+const NEW_MOON = Date.UTC(2000, 0, 6, 18, 14);
+const SYNODIC = 29.530588853 * 864e5;
+export const moonPhase = (now) => (((now - NEW_MOON) % SYNODIC) + SYNODIC) % SYNODIC / SYNODIC;
+
+// Warm near the horizon, gold high in the sky.
+export const sunColor = (lift) => {
+  const t = Math.min(1, Math.max(0, lift));
+  return mix("#F2803A", "#F7D13D", t);
+};

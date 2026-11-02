@@ -5,7 +5,7 @@ import { buildSchedule, formatEpoch, minutesUntil, localInfo, setHour24, TIMEZON
 import { useHebrewFont } from "../shared/fonts.js";
 import Board from "./scenes/Board.jsx";
 import { FlyerSlide, PhotoSlide, AnnouncementSlide, DonateSlide, LogoSlide, ShabbatSlide, Bar, pickPhotos } from "./scenes/Slides.jsx";
-import { skyGradient } from "./sky.js";
+import { skyGradient, nightness } from "./sky.js";
 import { upcomingMinyanim } from "../shared/minyan.js";
 import { subscribeSignups } from "../shared/signups.js";
 
@@ -124,6 +124,9 @@ export default function App() {
   const sky = skyGradient(z?.days?.[today], now);
   if (!tv) return <div className="viewport"><div className="sky" style={{ background: sky }} /></div>;
 
+  const stars = nightness(z?.days?.[today], now);
+  // A TV showing one image for months can burn it in, so everything drifts a few pixels.
+  const [nx, ny] = DRIFT[Math.floor(now / (5 * 60_000)) % DRIFT.length];
   const flip = FLIP && !params.has("preview");
   const dim = nightDim(tv.settings, now, tz);
   const onBoard = slides.cur.kind === "schedule";
@@ -146,17 +149,36 @@ export default function App() {
         style={flip
           // Upside down: size with zoom so text is laid out at its real size; a scale transform
           // under the turn gets drawn as a resized picture by some browsers (blurry).
-          ? { width: stage.w, height: stage.h, zoom: stage.scale, left: stage.x / stage.scale, top: stage.y / stage.scale }
-          : { width: stage.w, height: stage.h, left: stage.x, top: stage.y, transform: `scale(${stage.scale})` }}
+          ? { "--nx": `${nx}px`, "--ny": `${ny}px`, width: stage.w, height: stage.h, zoom: stage.scale, left: stage.x / stage.scale, top: stage.y / stage.scale }
+          : { "--nx": `${nx}px`, "--ny": `${ny}px`, width: stage.w, height: stage.h, left: stage.x, top: stage.y, transform: `scale(${stage.scale})` }}
       >
         <div className="sky" style={{ background: sky }} />
+        <Stars opacity={stars} />
         {prev && <div className="layer layer-out" key={"out" + prev.n}>{render(prev.slide)}</div>}
         <div className="layer layer-in" key={"in" + slides.n}>{render(slides.cur)}</div>
-        {!onBoard && <Bar next={minyanim[0]} tz={tz} logos={slides.cur.kind !== "logo"} />}
+        {!onBoard && <Bar next={minyanim[0]} tz={tz} now={now} logos={slides.cur.kind !== "logo"} />}
         <BigClock tz={tz} />
         {dim > 0 && <div className="night-dim" style={{ opacity: dim }} />}
       </div>
     </div>
+  );
+}
+
+const DRIFT = [[0, 0], [5, 0], [5, 4], [0, 4], [-5, 4], [-5, 0], [-5, -4], [0, -4], [5, -4]];
+
+// The same quiet sky every night, faded in as it gets dark.
+const STARS = (() => {
+  let seed = 5779;
+  const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  return Array.from({ length: 170 }, () => ({ x: rnd() * 1920, y: rnd() * rnd() * 860, r: 0.7 + rnd() * rnd() * 1.6, o: 0.25 + rnd() * 0.6 }));
+})();
+
+function Stars({ opacity }) {
+  if (opacity <= 0) return null;
+  return (
+    <svg className="stars" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice" style={{ opacity }} aria-hidden="true">
+      {STARS.map((s, i) => <circle key={i} cx={s.x} cy={s.y} r={s.r} fill="#F6F2E9" opacity={s.o} />)}
+    </svg>
   );
 }
 

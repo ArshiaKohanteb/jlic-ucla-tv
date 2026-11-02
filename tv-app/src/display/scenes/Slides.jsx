@@ -2,6 +2,7 @@ import React from "react";
 import { Logos, QR, Time } from "./parts.jsx";
 import { ShabbatList } from "./Board.jsx";
 import { OCCASIONS, DEDICATIONS } from "../../shared/defaults.js";
+import { whenWords } from "../../shared/minyan.js";
 
 const size = (text, steps) => steps.find(([max]) => text.length <= max)?.[1] || steps[steps.length - 1][1];
 const TITLE = [[20, "xl"], [42, "l"], [80, "m"], [9999, "s"]];
@@ -123,11 +124,12 @@ export function ShabbatSlide({ sched, tz }) {
 }
 
 // Stays along the bottom during every slide so the room always has what's next.
-export function Bar({ next, tz, logos }) {
+export function Bar({ next, tz, now, logos }) {
+  const when = next ? whenWords(next, now) : null;
   return (
     <div className="bar">
       <div className="bar-next">
-        {next && <><b dir="auto">{next.name}</b>{next.epoch != null && <Time epoch={next.epoch} tz={tz} />}<span>{next.day}</span></>}
+        {next && <><b dir="auto">{next.name}</b>{next.epoch != null && <Time epoch={next.epoch} tz={tz} />}<span className={when.soon ? "soon" : ""}>{when.text}</span></>}
       </div>
       {logos && <Logos />}
     </div>

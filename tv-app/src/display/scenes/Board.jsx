@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { Time, Logos, QR, Count } from "./parts.jsx";
 import { addDays, isLive } from "./util.js";
+import { sunColor, moonPhase } from "../sky.js";
+import { whenWords } from "../../shared/minyan.js";
 
 const SITE = "uclaminyan.com";
 const ARC = 190;
@@ -21,7 +23,23 @@ function zmanRow(z, hidden, date) {
   return list.sort((a, b) => a.at - b.at);
 }
 
-// The zmanim stand on the horizon, and the sun walks along it through the day.
+function Moon({ phase }) {
+  const r = 34;
+  const waxing = phase < 0.5;
+  const k = Math.cos(2 * Math.PI * phase);
+  const rx = Math.abs(k) * r;
+  const crescent = k > 0;
+  const lit = `M0 ${-r} A${r} ${r} 0 0 ${waxing ? 1 : 0} 0 ${r} A${rx} ${r} 0 0 ${waxing === crescent ? 0 : 1} 0 ${-r}Z`;
+  return (
+    <svg className="moon" viewBox="-36 -36 72 72" aria-hidden="true">
+      <circle r={r} fill="rgba(246, 242, 233, .08)" />
+      <path d={lit} fill="#F6F2E9" />
+    </svg>
+  );
+}
+
+// The zmanim stand on the horizon. By day the sun rises and sets behind it;
+// by night the moon crosses in tonight's real phase.
 function Horizon({ z, hidden, now, tz, today }) {
   const todays = z?.days?.[today] || {};
   const after = todays.tzet && now > todays.tzet;
@@ -30,17 +48,28 @@ function Horizon({ z, hidden, now, tz, today }) {
   const nextId = after ? list[0].id : list.find((x) => x.at > now)?.id;
   const n = list.length;
   const col = (i) => ((i + 0.5) / n) * 100;
-  let sun = null;
-  if (!after && todays.sunrise && now >= todays.sunrise) {
+  const { sunrise: sr, sunset: ss } = todays;
+  const M = 60_000;
+  let sun = null, lift = 0, moon = null;
+  if (sr && ss && now > sr - 6 * M && now < ss + 6 * M) {
     const i = list.findIndex((x) => x.at > now);
-    if (i > 0) sun = col(i - 1) + ((now - list[i - 1].at) / (list[i].at - list[i - 1].at)) * (100 / n);
-    else if (i === 0) sun = col(0);
+    const last = n - 1;
+    sun = i > 0 ? col(i - 1) + ((now - list[i - 1].at) / (list[i].at - list[i - 1].at)) * (100 / n) : i === 0 ? col(0) : col(last);
+    lift = now < sr ? (now - sr) / (6 * M) * 0.2 : now > ss ? (ss - now) / (6 * M) * 0.2 : Math.sin((Math.PI * (now - sr)) / (ss - sr));
+  } else if (sr) {
+    const nextRise = after ? z?.days?.[addDays(today, 1)]?.sunrise || sr + 864e5 : sr;
+    const start = after ? todays.tzet : (todays.tzet || ss) - 864e5;
+    const f = (now - start) / (nextRise - start);
+    if (f > 0 && f < 1) moon = { x: 4 + f * 92, y: Math.sin(Math.PI * f) * ARC };
   }
-  // Its real arc: on the line at sunrise and sunset, highest at midday.
-  const height = todays.sunset > todays.sunrise ? Math.max(0, Math.sin(Math.PI * Math.min(1, (now - todays.sunrise) / (todays.sunset - todays.sunrise)))) * ARC : 0;
   return (
     <section className="horizon">
-      <div className="horizon-line">{sun != null && <i className="sun" style={{ left: `${sun}%`, transform: `translateY(${-height}px)` }} />}</div>
+      {sun != null && <i className="sun-glow" style={{ left: `${sun}%`, bottom: `${200 + Math.max(0, lift) * ARC}px`, opacity: 0.35 + (1 - Math.max(0, lift)) * 0.65 }} />}
+      <div className="track">
+        {sun != null && <i className="sun" style={{ left: `${sun}%`, bottom: `${lift * ARC}px`, background: sunColor(lift * 2.4) }} />}
+        {moon && <div className="moon-at" style={{ left: `${moon.x}%`, bottom: `${moon.y}px` }}><Moon phase={moonPhase(now)} /></div>}
+      </div>
+      <div className="horizon-line" />
       <div className="zmanim" style={{ gridTemplateColumns: `repeat(${n}, 1fr)`, ...(n > 7 ? { "--zt": "58px", "--zl": "26px" } : {}) }}>
         {list.map((x) => (
           <div key={x.id} className={`zman ${x.id === nextId ? "is-next" : !after && x.at < now ? "is-past" : ""}`}>
@@ -82,22 +111,25 @@ function Notes({ tv, z, today }) {
   return <p className="note" key={it.text} dir={it.he ? "rtl" : "auto"}>{it.text}</p>;
 }
 
-function Minyanim({ list, tz }) {
+function Minyanim({ list, tz, now }) {
   if (!list.length) return <p className="none">Minyan times coming soon</p>;
   return (
-    <ul className="minyanim">
-      {list.map((o) => (
-        <li key={o.id + o.date} className={o.off ? "is-off" : ""}>
-          <div className="m-top">
-            <h2 dir="auto">{o.name}</h2>
-            {o.epoch != null ? <Time epoch={o.epoch} tz={tz} /> : <span className="t">Time to come</span>}
-          </div>
-          <div className="m-bottom">
-            <span dir="auto">{[o.day, o.place].filter(Boolean).join("  ·  ")}</span>
-            <Count o={o} />
-          </div>
-        </li>
-      ))}
+    <ul className={`minyanim ${list.length < 2 ? "solo" : ""}`}>
+      {list.map((o) => {
+        const when = whenWords(o, now);
+        return (
+          <li key={o.id + o.date} className={`${o.off ? "is-off" : ""} ${when.soon ? "is-soon" : ""}`}>
+            <div className="m-top">
+              <h2 dir="auto">{o.name}</h2>
+              {o.epoch != null ? <Time epoch={o.epoch} tz={tz} /> : <span className="t">Time to come</span>}
+            </div>
+            <div className="m-bottom">
+              <span dir="auto"><b>{when.text}</b>{o.place ? `  ·  ${o.place}` : ""}</span>
+              <Count o={o} />
+            </div>
+          </li>
+        );
+      })}
     </ul>
   );
 }
@@ -127,7 +159,7 @@ export default function Board({ tv, z, sched, now, tz, minyanim, shabbatView }) 
       </div>
       <aside className="side">
         <Logos />
-        {shabbatView ? <ShabbatList sched={sched} tz={tz} /> : <Minyanim list={minyanim} tz={tz} />}
+        {shabbatView ? <ShabbatList sched={sched} tz={tz} /> : <Minyanim list={minyanim} tz={tz} now={now} />}
         {!shabbatView && (
           <div className="signup">
             <QR value={`https://${SITE}`} label={`Sign up at ${SITE}`} />
