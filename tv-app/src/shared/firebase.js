@@ -5,7 +5,7 @@ import { getDatabase, ref } from "firebase/database";
 export const firebaseConfig = {
   apiKey: "AIzaSyDC4Rqtm7-sV6QrBoDfUnWwJfUjijpRa4I",
   authDomain: "jlic-ucla-tv.firebaseapp.com",
-  databaseURL: "https://jlic-ucla-tv-default-rtdb.europe-west1.firebasedatabase.app",
+  databaseURL: "https://jlic-ucla-tv.firebaseio.com",
   projectId: "jlic-ucla-tv",
   storageBucket: "jlic-ucla-tv.firebasestorage.app",
   messagingSenderId: "492455461177",
