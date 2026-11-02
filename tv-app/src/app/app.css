@@ -65,6 +65,7 @@ h1 { font-size: clamp(60px, 19vw, 84px); font-weight: 600; line-height: 1; lette
 .sheet { position: relative; width: 100%; max-width: 480px; padding: 30px 22px calc(26px + env(safe-area-inset-bottom)); background: #F6F2E9; color: var(--night); border-radius: 30px 30px 0 0; animation: up .32s cubic-bezier(.2, .8, .3, 1); }
 .sheet h2 { font-size: 36px; font-weight: 600; line-height: 1.1; letter-spacing: -.03em; padding-right: 44px; }
 .sheet-sub { margin: 6px 0 18px; color: #4A4A58; }
+.sheet-bg:has(.sheet:not(:has(.sheet-x))) { z-index: 15; }
 .sheet-x { position: absolute; right: 14px; top: 16px; width: 44px; height: 44px; display: grid; place-items: center; }
 .sheet form { display: grid; gap: 12px; }
 .sheet label { display: grid; gap: 4px; font-weight: 600; font-size: 15px; }

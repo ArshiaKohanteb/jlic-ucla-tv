@@ -11,7 +11,7 @@ import { isDemo } from "../shared/store.js";
 const auth = getAuth(app);
 setPersistence(auth, browserLocalPersistence).catch(() => {});
 
-const DEMO = { uid: "demo", name: "Arshia Kohanteb", email: "demo@preview", counts: true };
+const DEMO = { uid: "demo", name: "Arshia Kohanteb", email: "demo@preview", counts: true, phone: "" };
 
 export function watchAccount(cb) {
   if (isDemo()) {
@@ -22,7 +22,7 @@ export function watchAccount(cb) {
     if (!user) return cb(null);
     let saved = null;
     try { saved = (await get(ref(db, `users/${user.uid}`))).val(); } catch { /* rules not published yet */ }
-    cb({ uid: user.uid, email: user.email, name: saved?.name || user.displayName || "", counts: saved?.counts !== false });
+    cb({ uid: user.uid, email: user.email, name: saved?.name || user.displayName || "", counts: saved?.counts !== false, phone: saved?.phone || "" });
   });
 }
 
@@ -33,11 +33,11 @@ function demoIn() {
 
 export const signInGoogle = () => (isDemo() ? demoIn() : signInWithPopup(auth, new GoogleAuthProvider()));
 export const signInEmail = (email, password) => (isDemo() ? demoIn() : signInWithEmailAndPassword(auth, email.trim(), password));
-export async function createEmail(name, email, password) {
+export async function createEmail(name, email, password, phone) {
   if (isDemo()) return demoIn();
   const { user } = await createUserWithEmailAndPassword(auth, email.trim(), password);
   await updateProfile(user, { displayName: name.trim() });
-  await update(ref(db, `users/${user.uid}`), { name: name.trim(), counts: true });
+  await update(ref(db, `users/${user.uid}`), { name: name.trim(), phone, counts: true });
 }
 export const resetPassword = (email) => sendPasswordResetEmail(auth, email.trim());
 
@@ -49,6 +49,14 @@ export function saveProfile(user, patch) {
 export function leave() {
   if (isDemo()) { localStorage.removeItem("jlic-app-demo-user"); location.reload(); return; }
   return signOut(auth);
+}
+
+// Any way someone types it, stored in one form.
+export function cleanPhone(v) {
+  const d = String(v || "").replace(/\D/g, "");
+  if (d.length === 10) return "+1" + d;
+  if (d.length === 11 && d[0] === "1") return "+" + d;
+  return d.length > 10 ? "+" + d : "";
 }
 
 // "Ariel Kohanteb" becomes "Ariel K." The TV shows these, so full names stay private.

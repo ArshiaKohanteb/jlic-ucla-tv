@@ -6,7 +6,7 @@ import { startZmanimEngine } from "../shared/bootstrap.js";
 import { TIMEZONE, formatEpoch, localInfo, addDays, zonedEpoch } from "../shared/schedule.js";
 import { minyanCalendar, TEN } from "../shared/minyan.js";
 import { subscribeSignups, saveSignup, patchSignup, removeSignup } from "../shared/signups.js";
-import { watchAccount, signInGoogle, signInEmail, createEmail, resetPassword, saveProfile, leave, shortName, friendlyError } from "./account.js";
+import { watchAccount, signInGoogle, signInEmail, createEmail, resetPassword, saveProfile, leave, shortName, cleanPhone, friendlyError } from "./account.js";
 
 const clock = (epoch) => {
   if (epoch == null) return "Time to come";
@@ -118,14 +118,15 @@ function Sheet({ onClose, children }) {
 
 function SignIn({ onClose }) {
   const [mode, setMode] = useState("start");
-  const [f, setF] = useState({ name: "", email: "", password: "" });
+  const [f, setF] = useState({ name: "", phone: "", email: "", password: "" });
   const [msg, setMsg] = useState("");
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
   const run = (job) => Promise.resolve().then(job).catch((e) => setMsg(friendlyError(e)));
   const submit = (e) => {
     e.preventDefault();
     setMsg("");
-    run(() => (mode === "new" ? createEmail(f.name, f.email, f.password) : signInEmail(f.email, f.password)));
+    if (mode === "new" && !cleanPhone(f.phone)) { setMsg("Enter your phone number."); return; }
+    run(() => (mode === "new" ? createEmail(f.name, f.email, f.password, cleanPhone(f.phone)) : signInEmail(f.email, f.password)));
   };
   return (
     <Sheet onClose={onClose}>
@@ -139,6 +140,7 @@ function SignIn({ onClose }) {
       ) : (
         <form onSubmit={submit}>
           {mode === "new" && <label>Your name<input required autoComplete="name" value={f.name} onChange={set("name")} /></label>}
+          {mode === "new" && <label>Phone number<input required type="tel" autoComplete="tel" value={f.phone} onChange={set("phone")} /></label>}
           <label>Email<input required type="email" autoComplete="email" value={f.email} onChange={set("email")} /></label>
           <label>Password<input required type="password" minLength={6} autoComplete={mode === "new" ? "new-password" : "current-password"} value={f.password} onChange={set("password")} /></label>
           <button className="primary" type="submit">{mode === "new" ? "Create account" : "Sign in"}</button>
@@ -151,14 +153,35 @@ function SignIn({ onClose }) {
   );
 }
 
+// Every account needs a number, including people who came in through Google.
+function NeedPhone({ onSave }) {
+  const [v, setV] = useState("");
+  const [msg, setMsg] = useState("");
+  return (
+    <div className="sheet-bg">
+      <div className="sheet" role="dialog" aria-modal="true">
+        <h2>One last thing</h2>
+        <p className="sheet-sub">What's your phone number?</p>
+        <form onSubmit={(e) => { e.preventDefault(); const phone = cleanPhone(v); if (phone) onSave(phone); else setMsg("Check that number."); }}>
+          <label>Phone number<input required autoFocus type="tel" autoComplete="tel" value={v} onChange={(e) => setV(e.target.value)} /></label>
+          <button className="primary" type="submit">Done</button>
+        </form>
+        {msg && <p className="sheet-msg" role="alert">{msg}</p>}
+      </div>
+    </div>
+  );
+}
+
 function Profile({ user, onSave, onClose }) {
   const [name, setName] = useState(user.name);
+  const [phone, setPhone] = useState(user.phone || "");
   const [counts, setCounts] = useState(user.counts !== false);
   return (
     <Sheet onClose={onClose}>
       <h2>Your account</h2>
-      <form onSubmit={(e) => { e.preventDefault(); onSave({ name: name.trim() || user.name, counts }); }}>
+      <form onSubmit={(e) => { e.preventDefault(); onSave({ name: name.trim() || user.name, phone: cleanPhone(phone) || user.phone, counts }); }}>
         <label>Your name<input required value={name} onChange={(e) => setName(e.target.value)} /></label>
+        <label>Phone number<input required type="tel" autoComplete="tel" value={phone} onChange={(e) => setPhone(e.target.value)} /></label>
         <label className="check"><input type="checkbox" checked={counts} onChange={(e) => setCounts(e.target.checked)} />Count me toward the ten</label>
         <button className="primary" type="submit">Save</button>
       </form>
@@ -247,6 +270,7 @@ export default function App() {
       </main>
 
       {sheet === "signin" && <SignIn onClose={() => { setSheet(null); setPending(null); }} />}
+      {user && !user.phone && <NeedPhone onSave={(phone) => patch({ phone })} />}
       {sheet === "profile" && user && <Profile user={user} onClose={() => setSheet(null)} onSave={patch} />}
       {toast && <div className="toast" role="status">{toast}</div>}
     </div>
