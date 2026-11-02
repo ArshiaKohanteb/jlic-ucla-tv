@@ -134,8 +134,16 @@ ul { list-style: none; }
 .ways { display: flex; gap: 90px; margin-top: 24px; }
 .way { display: flex; flex-direction: column; justify-content: flex-end; gap: 8px; font-size: 40px; font-weight: 500; }
 .way .qr { width: 300px; height: 300px; margin-bottom: 14px; }
-.way b { font-weight: 600; }
+.pay { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 72px; width: 300px; overflow: hidden; border-radius: 16px; }
+.pay-venmo { background: #fff; }
+.pay-venmo svg { height: 190px; width: 190px; fill: #008CFF; }
+.pay-zelle { background: #6D1ED4; color: #fff; }
+.pay-zelle svg { width: 42px; height: 42px; fill: #fff; }
+.pay-zelle span, .pay-web span { font-size: 40px; font-weight: 700; letter-spacing: -.02em; }
+.pay-web { background: var(--ink); color: #0B0D1A; }
 .way span { color: var(--soft); }
+.way .pay-zelle span { color: #fff; }
+.way .pay-web span { color: #0B0D1A; }
 .poster-shabbat { padding-right: 500px; }
 .poster-shabbat .shabbat { flex: none; margin-top: 0; }
 .poster-shabbat .shabbat li { font-size: 50px; }
