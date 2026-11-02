@@ -18,6 +18,7 @@ export const confirmPoll = (tv, o, time) => setLive(tv, o, { state: "on", ...(ti
 export const cancelPoll = (tv, o) => setLive(tv, o, { state: "off" });
 export const reopenPoll = (tv, o) => setLive(tv, o, { state: "voting", time: "" });
 export const setRoom = (tv, o, place) => setLive(tv, o, { place });
+export const setPerk = (tv, o, perk) => setLive(tv, o, { perk });
 export const setExtra = (tv, o, count) => setLive(tv, o, { count });
 export const setMessage = (tv, o, message) => setLive(tv, o, { message });
 export const timesOf = (o) => (o.times || []);
@@ -45,4 +46,5 @@ export const addAuto = (tv, { name, times, place }) => {
   const list = [...new Set(times)].sort();
   return save([...tv.minyanim, { id: uid(), name, note: "", days: EVERY_DAY, place: place || "", options: list, time: { type: "fixed", value: list[0] || "" } }]);
 };
+export const setPollClose = (pollClose) => patchTv("settings", { pollClose });
 export const setAutoConfirm = (on) => patchTv("settings", { autoConfirm: on });

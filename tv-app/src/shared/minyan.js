@@ -40,7 +40,7 @@ export function pollOf(m, live, people) {
   return { options, going: lead.people, time: lead.t, times };
 }
 
-function read(m, date, z, tz, now, today, signups, autoConfirm = true) {
+function read(m, date, z, tz, now, today, signups, { autoConfirm = true, closeAt = "" } = {}) {
   const live = liveFor(m, date);
   const planned = m.time?.type === "fixed" ? m.time.value : "";
   const fixedEpoch = live?.time ? zonedEpoch(date, live.time, tz) : resolveTime(m.time, date, z, tz);
@@ -67,6 +67,10 @@ function read(m, date, z, tz, now, today, signups, autoConfirm = true) {
     extra,
     place: live?.place || m.place || "",
     message: live?.message || "",
+    perk: live?.perk || m.perk || "",
+    closes: closeAt && date > today ? zonedEpoch(addDays(date, -1), closeAt, tz) : null,
+    needsReader: /shach/i.test(m.name || "") && [1, 4].includes(weekdayOf(date)),
+    reader: going.find((p) => p.reads)?.name || "",
     note: m.note || "",
     day: dayLabel(date, today),
     need: TEN - count,
@@ -95,7 +99,7 @@ export function minyanCalendar(tv, z, now = Date.now(), tz = TIMEZONE, signups =
       const date = addDays(today, i);
       if (!runsOn(m, date)) continue;
       if (!m.date && (z?.calendar?.[date]?.assur || activeSpecial(tv, date))) continue;
-      const o = read(m, date, z, tz, now, today, signups, tv.settings?.autoConfirm !== false);
+      const o = read(m, date, z, tz, now, today, signups, { autoConfirm: tv.settings?.autoConfirm !== false, closeAt: tv.settings?.pollClose ?? "22:30" });
       // A minyan with no time yet stays up all day; one that was called off drops off at its time.
       if (o.epoch != null && now > o.epoch + (o.off ? 0 : STILL_ON_MS)) continue;
       found.push(o);
@@ -103,6 +107,52 @@ export function minyanCalendar(tv, z, now = Date.now(), tz = TIMEZONE, signups =
   }
   const at = (o) => o.epoch ?? zonedEpoch(o.date, "23:59", tz);
   return found.sort((a, b) => at(a) - at(b));
+}
+
+// The vote stays open after the deadline for a last-minute tenth, but the
+// countdown is what gets people to answer the night before.
+export function closeWords(o, now) {
+  if (!o.closes || o.on || o.off) return "";
+  const m = Math.ceil((o.closes - now) / 60_000);
+  if (m <= 0) return "Last call";
+  if (m > 12 * 60) return "";
+  if (m < 60) return `Closes in ${m} min`;
+  const h = Math.floor(m / 60), r = m % 60;
+  return `Closes in ${h} hr${r ? ` ${r} min` : ""}`;
+}
+
+export function needWords(o) {
+  if (o.off || o.on || !o.known) return "";
+  if (o.need === 1) return "One more needed";
+  if (o.need === 2) return "Two more needed";
+  return "";
+}
+
+// From half an hour before until it should be over, people can check in.
+export const canCheckIn = (o, now) => !o.off && o.epoch != null && now >= o.epoch - 30 * 60_000 && now <= o.epoch + 60 * 60_000;
+
+// How often this person came: every past sign-up, and days in a row.
+export function myRecord(signups, uid, today) {
+  const dates = Object.keys(signups || {}).filter((d) => d < today && Object.values(signups[d]).some((list) => list[uid])).sort();
+  let streak = 0, day = addDays(today, -1);
+  for (let i = dates.length - 1; i >= 0;) {
+    const wd = weekdayOf(day);
+    if (dates[i] === day) { streak += 1; i -= 1; } else if (wd !== 6) break;
+    day = addDays(day, -1);
+  }
+  return { count: dates.length, streak };
+}
+
+// Who has come most this calendar month, for the TV.
+export function monthLeader(signups, today) {
+  const counts = new Map();
+  for (const [d, polls] of Object.entries(signups || {})) {
+    if (d >= today || d.slice(0, 7) !== today.slice(0, 7)) continue;
+    for (const list of Object.values(polls)) for (const [uid, p] of Object.entries(list)) {
+      counts.set(uid, { name: p.name, n: (counts.get(uid)?.n || 0) + 1 });
+    }
+  }
+  return [...counts.values()].sort((a, b) => b.n - a.n)[0] || null;
 }
 
 // When it starts, said the way someone would say it across the room.

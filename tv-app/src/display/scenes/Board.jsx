@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Time, Logos, QR, Count } from "./parts.jsx";
 import { addDays, isLive } from "./util.js";
 import { sunColor, moonPhase } from "../sky.js";
-import { whenWords } from "../../shared/minyan.js";
+import { whenWords, closeWords, canCheckIn, monthLeader } from "../../shared/minyan.js";
 
 const SITE = "uclaminyan.com";
 const ARC = 84;
@@ -104,10 +104,18 @@ function levana(z, today) {
 }
 
 // One short line under the date that changes every so often.
-function Notes({ tv, z, today }) {
+function Notes({ tv, z, today, now, minyanim, signups }) {
   const s = tv.settings;
   const items = [];
   (tv.announcements || []).filter((a) => s.showTicker !== false && a.ticker !== false && isLive(a, today) && (a.style || "info") === "info").forEach((a) => items.push({ text: a.body || a.title }));
+  for (const o of minyanim || []) {
+    const close = closeWords(o, now);
+    if (close) items.push({ text: `${o.name} poll: ${close.toLowerCase()}` });
+    if (o.perk) items.push({ text: `${o.name}: ${o.perk}` });
+    if (o.needsReader && !o.off && !o.reader) items.push({ text: `${o.name}: we need a Torah reader` });
+  }
+  const leader = monthLeader(signups, today);
+  if (leader?.n > 1) items.push({ text: `Most at minyan this month: ${leader.name}, ${leader.n} times` });
   const lev = s.showLevana !== false && levana(z, today);
   if (lev) items.push({ text: lev });
   const daf = s.showLimudim === false ? null : z?.limudim?.find((l) => l.id === "daf")?.ref;
@@ -160,7 +168,8 @@ export function ShabbatList({ sched, tz }) {
   );
 }
 
-export default function Board({ tv, z, sched, now, tz, minyanim, shabbatView }) {
+export default function Board({ tv, z, sched, now, tz, minyanim, shabbatView, signups }) {
+  const checkIn = minyanim.find((o) => o.day === "Today" && canCheckIn(o, now));
   const s = tv.settings;
   const parasha = s.showParasha === false ? "" : z?.parasha ? `פרשת ${z.parasha}` : sched?.holidayToday?.he || "";
   return (
@@ -168,15 +177,15 @@ export default function Board({ tv, z, sched, now, tz, minyanim, shabbatView }) 
       <div className="dates">
         <p className="date-en">{s.showCivilDate === false ? "" : z?.hebrewDate?.civil || ""}</p>
         <p className="date-he" dir="rtl">{[s.showHebrewDate === false ? "" : z?.hebrewDate?.hebrew, parasha].filter(Boolean).join("  ·  ")}</p>
-        <Notes tv={tv} z={z} today={sched.today} />
+        <Notes tv={tv} z={z} today={sched.today} now={now} minyanim={minyanim} signups={signups} />
       </div>
       <aside className="side">
         <Logos />
         {shabbatView ? <ShabbatList sched={sched} tz={tz} /> : <Minyanim list={minyanim} tz={tz} now={now} />}
         {!shabbatView && (
           <div className="signup">
-            <QR value={`https://${SITE}`} label={`Sign up at ${SITE}`} />
-            <p>Coming?<br /><b>{SITE}</b></p>
+            <QR value={`https://${SITE}${checkIn ? "/?here" : ""}`} label={checkIn ? "Check in" : `Sign up at ${SITE}`} />
+            {checkIn ? <p>Here?<br /><b>Scan to check in</b></p> : <p>Coming?<br /><b>{SITE}</b></p>}
           </div>
         )}
       </aside>

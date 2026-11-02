@@ -1,11 +1,11 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Check, X } from "lucide-react";
 import { useTv, useZmanim, useNow } from "../display/hooks.js";
 import { skyGradient } from "../display/sky.js";
 import { startZmanimEngine } from "../shared/bootstrap.js";
 import { TIMEZONE, formatEpoch, formatHHMM, localInfo, addDays, zonedEpoch } from "../shared/schedule.js";
-import { minyanCalendar, TEN } from "../shared/minyan.js";
-import { subscribeSignups, saveSignup, patchSignup, removeSignup } from "../shared/signups.js";
+import { minyanCalendar, closeWords, needWords, canCheckIn, myRecord, TEN } from "../shared/minyan.js";
+import { subscribeAllSignups, saveSignup, patchSignup, removeSignup } from "../shared/signups.js";
 import { ClockInput } from "../admin/ui.jsx";
 import * as P from "../shared/polls.js";
 import { watchAccount, signInEmail, createEmail, sendCode, linkPhone, resetPassword, saveProfile, leave, shortName, cleanPhone, friendlyError } from "./account.js";
@@ -47,7 +47,20 @@ function Marks({ count }) {
 }
 
 // The whole site: tap the minyan you're coming to.
-function Choice({ o, mine, onToggle }) {
+function Meta({ o, now }) {
+  const close = closeWords(o, now);
+  const need = needWords(o);
+  const lines = [o.perk, o.needsReader && !o.off ? (o.reader ? `Torah reader: ${o.reader}` : "No Torah reader yet") : ""].filter(Boolean);
+  if (!close && !need && !lines.length) return null;
+  return (
+    <span className="meta">
+      {(need || close) && <span className="urgent">{[need, close].filter(Boolean).join(" · ")}</span>}
+      {lines.map((l) => <span key={l} dir="auto">{l}</span>)}
+    </span>
+  );
+}
+
+function Choice({ o, mine, onToggle, now }) {
   const status = o.off ? "Not happening" : o.on ? "We're on" : `${o.count} of ${TEN}`;
   return (
     <button className={`choice ${mine ? "is-in" : ""} ${o.on ? "is-on" : ""}`} disabled={o.off} aria-pressed={!!mine} onClick={onToggle}>
@@ -61,14 +74,15 @@ function Choice({ o, mine, onToggle }) {
         {!o.on && !o.off && <Marks count={o.count} />}
         <span className="status">{status}</span>
       </span>
-      <span className="who" dir="auto">{mine ? (o.people.length > 1 ? `You and ${o.people.length - 1 + o.extra} others` : "You're the first") : names(o)}</span>
+      <span className="who" dir="auto">{mine ? (o.people.length > 1 ? `You and ${o.people.length - 1 + o.extra} ${o.people.length - 1 + o.extra === 1 ? "other" : "others"}` : "You're the first") : names(o)}</span>
+      <Meta o={o} now={now} />
       {o.on && o.message && <span className="message" dir="auto">{o.message}</span>}
     </button>
   );
 }
 
 // Suggested times: tick any that work, and everyone sees where the votes are.
-function Poll({ o, mine, onVote }) {
+function Poll({ o, mine, onVote, now }) {
   const lead = o.options.reduce((best, x) => (x.count > best.count ? x : best), o.options[0]);
   return (
     <section className="poll">
@@ -88,6 +102,7 @@ function Poll({ o, mine, onVote }) {
           );
         })}
       </div>
+      <p className="poll-meta"><Meta o={o} now={now} /></p>
       {o.on && o.message && <p className="message" dir="auto">{o.message}</p>}
     </section>
   );
@@ -260,13 +275,17 @@ function Profile({ user, onSave, onClose }) {
   const [linking, setLinking] = useState(false);
   const [msg, setMsg] = useState("");
   const [counts, setCounts] = useState(user.counts !== false);
+  const [reads, setReads] = useState(!!user.reads);
+  const [leads, setLeads] = useState(!!user.leads);
   return (
     <Sheet onClose={onClose}>
       <h2>Your account</h2>
-      <form onSubmit={(e) => { e.preventDefault(); onSave({ name: name.trim() || user.name, phone: cleanPhone(phone) || user.phone, counts }); }}>
+      <form onSubmit={(e) => { e.preventDefault(); onSave({ name: name.trim() || user.name, phone: cleanPhone(phone) || user.phone, counts, reads, leads }); }}>
         <label>Your name<input required value={name} onChange={(e) => setName(e.target.value)} /></label>
         <label>Phone number<input required type="tel" autoComplete="tel" value={phone} onChange={(e) => setPhone(e.target.value)} /></label>
         <label className="check"><input type="checkbox" checked={counts} onChange={(e) => setCounts(e.target.checked)} />Count me toward the ten</label>
+        <label className="check"><input type="checkbox" checked={reads} onChange={(e) => setReads(e.target.checked)} />I can read Torah</label>
+        <label className="check"><input type="checkbox" checked={leads} onChange={(e) => setLeads(e.target.checked)} />I can lead davening</label>
         <button className="primary" type="submit">Save</button>
       </form>
       {user.admin && !user.phoneLogin && (linking
@@ -291,7 +310,7 @@ export default function App() {
   const [managing, setManaging] = useState(null);
 
   useEffect(() => watchAccount(setUser), []);
-  useEffect(() => subscribeSignups(today, setSignups, () => {}), [today]);
+  useEffect(() => subscribeAllSignups(setSignups), []);
   const needsZmanim = !!tv?.minyanim?.some((m) => m.time?.type === "zman");
   useEffect(() => { if (needsZmanim) startZmanimEngine(); }, [needsZmanim]);
   useEffect(() => { document.body.style.background = phoneSky(now); }, [now]);
@@ -300,17 +319,36 @@ export default function App() {
   const all = useMemo(() => (tv ? minyanCalendar(tv, z, now, TIMEZONE, signups, 3) : []), [tv, z, now, signups]);
   // Tomorrow's polls, plus anything an admin opened for another day (a Mincha today, say).
   const open = all.filter((o) => o.date === goal.date || !o.auto || (o.date === today && o.on));
-  const days = [...new Set(open.map((o) => o.date))].sort();
+  const openNow = open.filter((o) => !(o.date === today && o.date !== goal.date && mineOf(o)));
+  const days = [...new Set(openNow.map((o) => o.date))].sort();
   const lead = days[0] || goal.date;
-  const leadWord = open.find((o) => o.date === lead)?.day || goal.word;
+  const leadWord = openNow.find((o) => o.date === lead)?.day || goal.word;
   const mineOf = (o) => (user ? o.people.find((p) => p.uid === user.uid) : null);
   const todayRows = all.filter((o) => o.date === today && o.date !== goal.date && mineOf(o));
+
+  const entry = (who, more = {}) => ({ name: shortName(who.name), counts: who.counts !== false, at: Date.now(), ...(who.reads ? { reads: true } : {}), ...(who.leads ? { leads: true } : {}), ...more });
+  const record = useMemo(() => (user ? myRecord(signups, user.uid, today) : null), [signups, user, today]);
+  const here = all.find((o) => o.date === today && canCheckIn(o, now));
+  const hereMine = here ? mineOf(here)?.here : false;
+  const doHere = (o, who = user) => {
+    if (!who) { setPending({ ...o, checkIn: true }); setSheet("signin"); return; }
+    const mine = o.people.find((p) => p.uid === who.uid);
+    navigator.vibrate?.(12);
+    (mine ? patchSignup(o.date, o.id, who.uid, { here: true }) : saveSignup(o.date, o.id, who.uid, entry(who, { here: true }))).catch(fail);
+  };
+  // The QR code on the TV opens the site with ?here, and that checks you in.
+  const scanned = useRef(new URLSearchParams(location.search).has("here"));
+  useEffect(() => {
+    if (!scanned.current || user === undefined || !tv || !here) return;
+    scanned.current = false;
+    doHere(here);
+  }, [user, !!tv, here?.id]);
 
   const fail = () => { setToast("That didn't save. Try again."); setTimeout(() => setToast(""), 3500); };
   const join = (o, who = user) => {
     if (!who) { setPending(o); setSheet("signin"); return; }
     navigator.vibrate?.(12);
-    saveSignup(o.date, o.id, who.uid, { name: shortName(who.name), counts: who.counts !== false, at: Date.now() }).catch(fail);
+    saveSignup(o.date, o.id, who.uid, entry(who)).catch(fail);
   };
   const out = (o) => removeSignup(o.date, o.id, user.uid).catch(fail);
   // A vote is a sign-up that remembers which times work. No times left means they're out.
@@ -322,14 +360,15 @@ export default function App() {
     if (picked) delete times[t]; else times[t] = true;
     if (!Object.keys(times).length) return out(o);
     navigator.vibrate?.(12);
-    saveSignup(o.date, o.id, who.uid, { name: shortName(who.name), counts: who.counts !== false, at: mine?.at || Date.now(), times }).catch(fail);
+    saveSignup(o.date, o.id, who.uid, entry(who, { at: mine?.at || Date.now(), times })).catch(fail);
   };
 
   // Finish the tap that started the sign-in.
   useEffect(() => {
     if (user && sheet === "signin") setSheet(null);
     if (user && pending) {
-      if (pending.voteFor) vote(pending, pending.voteFor, false, user); else join(pending, user);
+      if (pending.checkIn) doHere(pending, user);
+      else if (pending.voteFor) vote(pending, pending.voteFor, false, user); else join(pending, user);
       setPending(null);
     }
   }, [user]);
@@ -345,23 +384,30 @@ export default function App() {
       </header>
 
       <main>
+        {here && (
+          <button className={`here ${hereMine ? "is-in" : ""}`} onClick={() => doHere(here)}>
+            <span>{hereMine ? "You're checked in" : `Here for ${here.name}?`}</span>
+            <b>{hereMine ? "Thank you" : "I'm here"}</b>
+          </button>
+        )}
         <h1>{leadWord}</h1>
         <p className="date">{longDate(lead)}</p>
+        {record?.count > 0 && <p className="record">You've come {record.count} {record.count === 1 ? "time" : "times"}{record.streak > 1 ? ` · ${record.streak} days in a row` : ""}</p>}
         {todayRows.map((o) => (
           <TodayRow key={o.id} o={o} mine={mineOf(o)} onOut={() => out(o)}
             onLate={() => patchSignup(o.date, o.id, user.uid, { late: !mineOf(o).late }).catch(fail)} />
         ))}
         {!tv ? null : days.length ? days.map((d, i) => (
           <section key={d} className="day">
-            {i > 0 && <h2 className="day-head">{open.find((o) => o.date === d).day}</h2>}
+            {i > 0 && <h2 className="day-head">{openNow.find((o) => o.date === d).day}</h2>}
             <div className="choices">
-              {open.filter((o) => o.date === d).map((o) => {
+              {openNow.filter((o) => o.date === d).map((o) => {
                 const mine = mineOf(o);
                 return (
                   <div key={o.id} className="card-wrap">
                     {o.options
-                      ? <Poll o={o} mine={mine} onVote={(t, picked) => vote(o, t, picked)} />
-                      : <Choice o={o} mine={mine} onToggle={() => (mine ? out(o) : join(o))} />}
+                      ? <Poll o={o} now={now} mine={mine} onVote={(t, picked) => vote(o, t, picked)} />
+                      : <Choice o={o} now={now} mine={mine} onToggle={() => (mine ? out(o) : join(o))} />}
                     {user?.admin && <button className="manage" onClick={() => setManaging(`${o.id}|${o.date}`)}>Manage</button>}
                   </div>
                 );

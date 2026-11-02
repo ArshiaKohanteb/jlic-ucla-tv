@@ -132,7 +132,7 @@ export default function Minyan({ tv, z }) {
   return (
     <div className="stack">
       <Tabs value={tab} onChange={setTab} options={[{ value: "live", label: "Polls" }, { value: "log", label: "Log" }, { value: "stats", label: "Stats" }]} />
-      {tab === "live" && <Polls tv={tv} z={z} signups={signups} />}
+      {tab === "live" && <Polls tv={tv} z={z} signups={signups} regulars={stats.board} />}
       {tab === "log" && <Log log={log} known={known} today={today} />}
       {tab === "stats" && <Stats s={stats} />}
     </div>

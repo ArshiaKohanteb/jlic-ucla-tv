@@ -486,3 +486,6 @@ form .access-pick { padding-left: 0; }
 .au-main { flex: 1; min-width: 0; padding: 10px 0; text-align: left; }
 .au-main b { display: block; font-weight: 800; }
 .au-main span { color: var(--muted); font-size: 14px; }
+.pl-notes { font-size: 14px; font-weight: 700; color: var(--gold); }
+.pl-missing { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 14px; border-radius: 14px; background: var(--bg); font-size: 14px; color: var(--ink-2); }
+.pl-missing a { font-weight: 700; color: var(--royal); }

@@ -78,6 +78,8 @@ export const DEFAULT_SETTINGS = {
   },
   // A poll reaching ten turns to "We're on" by itself
   autoConfirm: true,
+  // Polls count down to this time the night before
+  pollClose: "22:30",
   // Hidden zmanim (ids) on the schedule screen
   hiddenZmanim: ["alot", "midnight"],
   // Bumped from the dashboard to force every TV to reload

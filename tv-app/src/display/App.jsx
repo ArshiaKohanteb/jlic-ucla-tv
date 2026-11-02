@@ -7,7 +7,7 @@ import Board from "./scenes/Board.jsx";
 import { FlyerSlide, PhotoSlide, AnnouncementSlide, DonateSlide, LogoSlide, ShabbatSlide, Bar, pickPhotos } from "./scenes/Slides.jsx";
 import { skyGradient, nightness } from "./sky.js";
 import { upcomingMinyanim } from "../shared/minyan.js";
-import { subscribeSignups } from "../shared/signups.js";
+import { subscribeAllSignups } from "../shared/signups.js";
 
 const params = new URLSearchParams(location.search);
 const HOLD = params.get("hold"); // schedule | flyer | announcement (dashboard preview)
@@ -35,7 +35,7 @@ export default function App() {
   useHebrewFont(tv?.settings?.hebrewFont);
   const sched = useMemo(() => (tv ? buildSchedule(tv, z, now, tz) : null), [tv, z, now, tz]);
   const [signups, setSignups] = useState({});
-  useEffect(() => subscribeSignups(today, setSignups, () => {}), [today]);
+  useEffect(() => subscribeAllSignups(setSignups), []);
   const minyanim = useMemo(() => (tv ? upcomingMinyanim(tv, z, now, tz, 2, signups) : []), [tv, z, now, tz, signups]);
   // Friday afternoon through Shabbat the Rabbi's Shabbat list takes over the board.
   const weekday = localInfo(now, tz);
@@ -139,7 +139,7 @@ export default function App() {
     if (slide.kind === "donate") return <DonateSlide {...props} shabbat={sched?.inPeriod} />;
     if (slide.kind === "logo") return <LogoSlide />;
     if (slide.kind === "shabbat") return <ShabbatSlide {...props} />;
-    return <Board {...props} minyanim={minyanim} shabbatView={shabbatView} />;
+    return <Board {...props} minyanim={minyanim} shabbatView={shabbatView} signups={signups} />;
   };
 
   return (

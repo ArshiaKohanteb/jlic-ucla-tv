@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Plus, X, Check, Pencil, Trash2, Send, Repeat } from "lucide-react";
 import { Card, Button, Field, Modal, Stepper, Toggle, ClockInput, todayKey } from "../ui.jsx";
-import { minyanCalendar, TEN } from "../../shared/minyan.js";
+import { minyanCalendar, closeWords, needWords, TEN } from "../../shared/minyan.js";
 import { TIMEZONE, formatHHMM, addDays } from "../../shared/schedule.js";
 import * as P from "../../shared/polls.js";
 
@@ -60,9 +60,27 @@ function OpenPoll({ tv, onClose }) {
   );
 }
 
-function Poll({ tv, o }) {
+// The people who usually come and haven't answered yet, with a nudge ready to send.
+function Missing({ o, regulars }) {
+  const inIds = new Set(o.people.map((p) => p.uid));
+  const list = (regulars || []).filter((r) => !inIds.has(r.key) && !r.key.startsWith("n_")).slice(0, 6);
+  if (!list.length || o.on || o.off) return null;
+  const names = list.map((r) => r.name.split(" ")[0]);
+  const text = `We need ${o.need} more for ${o.name} ${o.day.toLowerCase()}! ${names.join(", ")}, are you in? uclaminyan.com`;
+  return (
+    <p className="pl-missing">
+      <span>Usually come: {list.map((r) => r.name).join(", ")}</span>
+      <a href={waLink(text)} target="_blank" rel="noreferrer">Nudge them</a>
+    </p>
+  );
+}
+
+function Poll({ tv, o, regulars, now }) {
   const [edit, setEdit] = useState(false);
   const [room, setRoom] = useState(o.place);
+  const [perk, setPerk] = useState(o.perk);
+  const notes = [needWords(o), closeWords(o, now), o.perk, o.needsReader ? (o.reader ? `Torah reader: ${o.reader}` : "No Torah reader yet") : ""].filter(Boolean);
+  const here = o.people.filter((p) => p.here).length;
   const choices = o.votes?.length ? o.votes : o.times.length ? o.times.map((t) => ({ t, count: o.count })) : o.planned ? [{ t: o.planned, count: o.count }] : [];
   const state = o.off ? "Not happening" : o.on ? "We're on" : "Voting";
   const confirmed = o.locked || (o.on ? o.times[0] || o.planned : "");
@@ -91,6 +109,9 @@ function Poll({ tv, o }) {
         </div>
       )}
 
+      {notes.length > 0 && <p className="pl-notes">{notes.join(" · ")}</p>}
+      {here > 0 && <p className="pl-notes">{here} checked in</p>}
+      <Missing o={o} regulars={regulars} />
       {o.people.length > 0 && <p className="pl-who">{o.people.map((p) => p.name + (p.late ? " (late)" : "")).join(", ")}{o.extra ? ` + ${o.extra}` : ""}</p>}
 
       <footer className="pl-actions">
@@ -108,6 +129,7 @@ function Poll({ tv, o }) {
             <Field label="Room"><input className="input" list="minyan-rooms" placeholder="Beit Midrash" value={room} onChange={(e) => setRoom(e.target.value)} onBlur={() => room !== o.place && P.setRoom(tv, o, room)} /></Field>
             <Field label="People not on the site"><Stepper value={o.extra} min={0} max={10} onChange={(n) => P.setExtra(tv, o, n)} /></Field>
           </div>
+          <Field label="Perk" hint="Shows on the site and TV"><input className="input" placeholder="Breakfast if we get ten" value={perk} onChange={(e) => setPerk(e.target.value)} onBlur={() => perk !== o.perk && P.setPerk(tv, o, perk)} /></Field>
           {o.people.length > 0 && (
             <div className="pk-chips">
               {o.people.map((p) => <button key={p.uid} className="chip" onClick={() => confirm(`Remove ${p.name}?`) && P.removePerson(o, p.uid)}>{p.name}<X size={14} /></button>)}
@@ -141,7 +163,7 @@ function AutoRow({ tv, m }) {
   );
 }
 
-export default function Polls({ tv, z, signups }) {
+export default function Polls({ tv, z, signups, regulars }) {
   const [opening, setOpening] = useState(false);
   const polls = minyanCalendar(tv, z, Date.now(), TIMEZONE, signups, 3).filter((o) => {
     if (!o.auto) return true;
@@ -153,10 +175,11 @@ export default function Polls({ tv, z, signups }) {
     <div className="stack">
       <datalist id="minyan-rooms">{ROOMS.map((r) => <option key={r} value={r} />)}</datalist>
       <div className="pl-bar"><Button variant="primary" icon={Plus} onClick={() => setOpening(true)}>Open a poll</Button></div>
-      {polls.length ? <div className="pl-list">{polls.map((o) => <Poll key={o.id + o.date} tv={tv} o={o} />)}</div> : <p className="empty-state">No polls open.</p>}
+      {polls.length ? <div className="pl-list">{polls.map((o) => <Poll key={o.id + o.date} tv={tv} o={o} regulars={regulars} now={Date.now()} />)}</div> : <p className="empty-state">No polls open.</p>}
       <Card title="Runs by itself" subtitle="These polls open every day for the next day, except Shabbat." icon={Repeat}>
         <ul className="au-list">{autos.map((m) => <AutoRow key={m.id} tv={tv} m={m} />)}</ul>
         <Button variant="secondary" icon={Plus} onClick={() => P.addAuto(tv, { name: "Mincha", times: ["13:10"] })}>Add a daily poll</Button>
+        <Field label="Polls close the night before at" hint="A countdown runs until then. People can still vote after, as a last call."><ClockInput value={tv.settings.pollClose ?? "22:30"} onChange={P.setPollClose} /></Field>
         <Toggle label="Turn to We're on at ten" hint="The leading time is confirmed for you" checked={tv.settings.autoConfirm !== false} onChange={P.setAutoConfirm} />
       </Card>
       {opening && <OpenPoll tv={tv} onClose={() => setOpening(false)} />}

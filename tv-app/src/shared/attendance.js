@@ -43,9 +43,12 @@ export function buildLog(tv, signups, attendance, today) {
     const m = byId.get(id) || { id };
     const live = liveFor(m, date);
     const a = attendance?.[date]?.[id] || {};
-    const { going, time } = pollOf(m, live, signupList(signups, date, id));
+    const all = signupList(signups, date, id);
+    const { going, time } = pollOf(m, live, all);
+    const here = all.filter((p) => p.here);
     const fixes = a.people || {};
-    const people = going.filter((p) => fixes[p.uid] !== false).map((p) => ({ key: p.uid, name: p.name, counts: p.counts !== false, late: !!p.late }));
+    // Check-ins beat sign-ups: once anyone has scanned in, only the people who did count.
+    const people = (here.length ? here : going).filter((p) => fixes[p.uid] !== false).map((p) => ({ key: p.uid, name: p.name, counts: p.counts !== false, late: !!p.late }));
     for (const [k, v] of Object.entries(fixes)) if (v && !people.some((p) => p.key === k)) people.push({ key: k, name: v.name, counts: v.counts !== false, added: true });
     const extra = a.extra ?? Number(live?.count) ?? 0;
     const total = people.filter((p) => p.counts).length + (extra || 0);
