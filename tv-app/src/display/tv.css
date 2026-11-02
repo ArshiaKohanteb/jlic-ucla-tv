@@ -23,7 +23,9 @@ ul { list-style: none; }
 /* The clock */
 .bigclock { position: absolute; z-index: 5; left: var(--m); top: 28px; display: flex; align-items: flex-start; color: var(--ink); transform-origin: 0 0; transition: transform 1.2s cubic-bezier(.65, 0, .2, 1); white-space: nowrap; }
 .bc-time { font-size: 400px; font-weight: 600; line-height: 1; letter-spacing: -.045em; }
-.bc-ampm { font-size: 64px; font-weight: 600; line-height: 1; margin: 76px 0 0 22px; letter-spacing: 0; }
+.bc-side { display: flex; flex-direction: column; gap: 14px; margin: 76px 0 0 22px; font-size: 64px; font-weight: 600; line-height: 1; }
+.bc-sec { color: var(--gold); letter-spacing: -.01em; transition: opacity .4s; }
+.on-slide .bc-sec { opacity: 0; }
 .on-slide .bigclock { transform: translateY(884px) scale(.3); }
 
 /* Board */

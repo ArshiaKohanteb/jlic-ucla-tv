@@ -165,7 +165,7 @@ export default function App() {
 function BigClock({ tz }) {
   const now = useNow(1000);
   const f = formatEpoch(now, tz);
-  return <div className="bigclock"><span className="bc-time">{f.time}</span><span className="bc-ampm">{f.ampm}</span></div>;
+  return <div className="bigclock"><span className="bc-time">{f.time}</span><span className="bc-side"><span className="bc-ampm">{f.ampm}</span><span className="bc-sec">{String(new Date(now).getSeconds()).padStart(2, "0")}</span></span></div>;
 }
 
 // Fully load and decode images (kept in a small cache); gives up after 3s so a
