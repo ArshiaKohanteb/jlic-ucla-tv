@@ -123,13 +123,13 @@ export function ShabbatSlide({ sched, tz }) {
 }
 
 // Stays along the bottom during every slide so the room always has what's next.
-export function Bar({ next, tz }) {
+export function Bar({ next, tz, logos }) {
   return (
     <div className="bar">
       <div className="bar-next">
         {next && <><b dir="auto">{next.name}</b>{next.epoch != null && <Time epoch={next.epoch} tz={tz} />}<span>{next.day}</span></>}
       </div>
-      <Logos />
+      {logos && <Logos />}
     </div>
   );
 }

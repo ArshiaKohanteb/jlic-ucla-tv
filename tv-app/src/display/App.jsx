@@ -152,7 +152,7 @@ export default function App() {
         <div className="sky" style={{ background: sky }} />
         {prev && <div className="layer layer-out" key={"out" + prev.n}>{render(prev.slide)}</div>}
         <div className="layer layer-in" key={"in" + slides.n}>{render(slides.cur)}</div>
-        {!onBoard && <Bar next={minyanim[0]} tz={tz} />}
+        {!onBoard && <Bar next={minyanim[0]} tz={tz} logos={slides.cur.kind !== "logo"} />}
         <BigClock tz={tz} />
         {dim > 0 && <div className="night-dim" style={{ opacity: dim }} />}
       </div>
