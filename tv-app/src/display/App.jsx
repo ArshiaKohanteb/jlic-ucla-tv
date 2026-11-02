@@ -1,17 +1,13 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useTv, useZmanim, useNow, useStage, useImageSizes } from "./hooks.js";
 import { buildContent, slideSeconds } from "./rotation.js";
-import { buildSchedule, minutesUntil, localInfo, setHour24, TIMEZONE } from "../shared/schedule.js";
-import { THEMES } from "../shared/themes.js";
+import { buildSchedule, formatEpoch, minutesUntil, localInfo, setHour24, TIMEZONE } from "../shared/schedule.js";
 import { useHebrewFont } from "../shared/fonts.js";
-import ScheduleScene, { ShabbatBoard } from "./scenes/ScheduleScene.jsx";
-import { Rail } from "./scenes/board.jsx";
+import Board from "./scenes/Board.jsx";
+import { FlyerSlide, PhotoSlide, AnnouncementSlide, DonateSlide, LogoSlide, ShabbatSlide, Bar, pickPhotos } from "./scenes/Slides.jsx";
+import { skyGradient } from "./sky.js";
 import { upcomingMinyanim } from "../shared/minyan.js";
 import { subscribeSignups } from "../shared/signups.js";
-import { FlyerScene, AnnouncementScene } from "./scenes/ContentScenes.jsx";
-import CommunityScene, { pickCollage } from "./scenes/CommunityScene.jsx";
-import DonateScene from "./scenes/DonateScene.jsx";
-import LogoScene from "./scenes/LogoScene.jsx";
 
 const params = new URLSearchParams(location.search);
 const HOLD = params.get("hold"); // schedule | flyer | announcement (dashboard preview)
@@ -91,14 +87,14 @@ export default function App() {
       }
       if (next.kind === "schedule") sinceSchedule.current = 0;
       // A new key each time, so every collage is a fresh random pick.
-      if (next.kind === "community") next = { ...next, key: "community-" + Date.now(), pick: pickCollage(tv) };
+      if (next.kind === "community") next = { ...next, key: "community-" + Date.now(), pick: pickPhotos(tv) };
       const show = () => {
         if (cancelled) return;
         if (next.key !== cur.key) setPrev({ slide: cur, n: slides.n });
         setSlides((p) => ({ cur: next, n: next.key !== p.cur.key ? p.n + 1 : p.n, tick: p.tick + 1 }));
       };
       // Decode the next slide's pictures first so the fade-in never stutters.
-      const urls = next.kind === "community" ? next.pick.photos.map((p) => p.url) : (next.items || []).map((f) => f.url);
+      const urls = next.kind === "community" ? (next.pick.photos || []).map((p) => p.url) : (next.items || []).map((f) => f.url);
       if (urls.length) predecode(urls).then(show);
       else show();
     }, ms);
@@ -125,51 +121,52 @@ export default function App() {
     if (p.hour === h && p.minute === m && performance.now() > 10 * 60_000) location.reload();
   }, [now]);
 
-  if (!tv) return <Splash />;
+  const sky = skyGradient(z?.days?.[today], now);
+  if (!tv) return <div className="viewport"><div className="sky" style={{ background: sky }} /></div>;
 
-  const themeId = "royal";
-  const theme = THEMES[themeId];
   const flip = FLIP && !params.has("preview");
   const dim = nightDim(tv.settings, now, tz);
+  const onBoard = slides.cur.kind === "schedule";
 
   const render = (slide) => {
-    const props = { slide, tv, z, sched, now, tz, minyanim, shabbatView };
-    if (slide.kind === "shabbat") return <div className="scene scene-board"><ShabbatBoard {...props} /></div>;
-    if (slide.kind === "flyer") return <FlyerScene {...props} />;
-    if (slide.kind === "announcement") return <AnnouncementScene {...props} />;
-    if (slide.kind === "community") return <CommunityScene {...props} />;
-    if (slide.kind === "donate") return <DonateScene {...props} />;
-    if (slide.kind === "logo") return <LogoScene {...props} />;
-    return <ScheduleScene {...props} />;
+    const props = { slide, tv, z, sched, now, tz };
+    if (slide.kind === "flyer") return <FlyerSlide {...props} />;
+    if (slide.kind === "announcement") return <AnnouncementSlide {...props} />;
+    if (slide.kind === "community") return <PhotoSlide {...props} />;
+    if (slide.kind === "donate") return <DonateSlide {...props} shabbat={sched?.inPeriod} />;
+    if (slide.kind === "logo") return <LogoSlide />;
+    if (slide.kind === "shabbat") return <ShabbatSlide {...props} />;
+    return <Board {...props} minyanim={minyanim} shabbatView={shabbatView} />;
   };
 
   return (
-    <div className={`viewport theme-${themeId} ${theme.dark ? "is-dark" : "is-light"} fx-${tv.settings.effects === "lite" || HANDHELD ? "lite" : "full"} tr-${tv.settings.transition || "fade"} ${stage.w / stage.h < 1.6 ? "is-narrow" : ""} ${flip ? "is-flipped" : ""}`} style={{ ...theme.vars }}>
+    <div className={`viewport fx-${tv.settings.effects === "lite" || HANDHELD ? "lite" : "full"} ${flip ? "is-flipped" : ""}`}>
       <div
-        className="stage"
+        className={`stage ${onBoard ? "on-board" : "on-slide"}`}
         style={flip
           // Upside down: size with zoom so text is laid out at its real size; a scale transform
           // under the turn gets drawn as a resized picture by some browsers (blurry).
           ? { width: stage.w, height: stage.h, zoom: stage.scale, left: stage.x / stage.scale, top: stage.y / stage.scale }
           : { width: stage.w, height: stage.h, left: stage.x, top: stage.y, transform: `scale(${stage.scale})` }}
       >
-        <div className="ambient" aria-hidden="true">
-          <div className="amb-tint" />
-          {!HANDHELD && <><div className="orb orb-a" /><div className="orb orb-b" /><div className="orb orb-c" /></>}
-        </div>
-        <main className="main">
-          {prev && <div className={`layer layer-out ${fit(prev.slide)}`} key={"out" + prev.n}>{render(prev.slide)}</div>}
-          <div className={`layer layer-in ${fit(slides.cur)}`} key={"in" + slides.n}>{render(slides.cur)}</div>
-        </main>
-        <Rail tv={tv} z={z} sched={sched} tz={tz} next={minyanim[0]} showNext={slides.cur.kind !== "schedule" && slides.cur.kind !== "shabbat"} />
+        <div className="sky" style={{ background: sky }} />
+        {prev && <div className="layer layer-out" key={"out" + prev.n}>{render(prev.slide)}</div>}
+        <div className="layer layer-in" key={"in" + slides.n}>{render(slides.cur)}</div>
+        {!onBoard && <Bar next={minyanim[0]} tz={tz} />}
+        <BigClock tz={tz} />
         {dim > 0 && <div className="night-dim" style={{ opacity: dim }} />}
       </div>
     </div>
   );
 }
 
-// Slides built for the whole 1920 stage are scaled into the room beside the rail.
-const fit = (slide) => (slide.kind === "schedule" || slide.kind === "shabbat" ? "" : "layer-fit");
+// One clock for the whole show: a monument on the board, and it glides down
+// to the corner when a photo or flyer takes the wall.
+function BigClock({ tz }) {
+  const now = useNow(1000);
+  const f = formatEpoch(now, tz);
+  return <div className="bigclock"><span className="bc-time">{f.time}</span><span className="bc-ampm">{f.ampm}</span></div>;
+}
 
 // Fully load and decode images (kept in a small cache); gives up after 3s so a
 // slow image can never stall the rotation.
@@ -200,14 +197,4 @@ function nightDim(s, now, tz) {
   const a = sh * 60 + sm, b = eh * 60 + em;
   const inside = a < b ? mins >= a && mins < b : mins >= a || mins < b;
   return inside ? Math.min(0.85, Math.max(0, 1 - (Number(n.level) || 40) / 100)) : 0;
-}
-
-function Splash() {
-  return (
-    <div className="viewport theme-royal is-dark" style={THEMES.royal.vars}>
-      <div className="splash">
-        <div className="logo-mark" />
-      </div>
-    </div>
-  );
 }
