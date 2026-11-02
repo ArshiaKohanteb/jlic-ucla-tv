@@ -26,6 +26,17 @@ export function subscribeSignups(today, cb, onError) {
   return onValue(query(ref(db, "signups"), orderByKey(), startAt(today)), (s) => cb(s.val() || {}), onError);
 }
 
+// Every sign-up ever, for the dashboard's log and stats.
+export function subscribeAllSignups(cb) {
+  if (isDemo()) {
+    const emit = () => cb(readDemo());
+    emit();
+    window.addEventListener(DEMO_EVENT, emit);
+    return () => window.removeEventListener(DEMO_EVENT, emit);
+  }
+  return onValue(ref(db, "signups"), (s) => cb(s.val() || {}), () => cb({}));
+}
+
 export function saveSignup(date, minyanId, uid, value) {
   if (isDemo()) return Promise.resolve(writeDemo((a) => { ((a[date] ||= {})[minyanId] ||= {})[uid] = value; }));
   return set(ref(db, `signups/${date}/${minyanId}/${uid}`), value);

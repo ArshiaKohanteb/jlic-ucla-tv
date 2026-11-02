@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from "react";
-import { LayoutDashboard, Clock, Megaphone, Images, MonitorSmartphone, Settings as SettingsIcon, LogOut } from "lucide-react";
+import { LayoutDashboard, Users, Clock, Megaphone, Images, MonitorSmartphone, Settings as SettingsIcon, LogOut } from "lucide-react";
 import { subscribeTv, seedTv, isDemo, setEditor } from "../shared/store.js";
 import { watchUser, signIn, signOutUser, resetPassword, claimOwner } from "./services.js";
 import { Button, Field, EditedBy } from "./ui.jsx";
 import { can } from "./access.js";
 import Home from "./sections/Home.jsx";
 import Schedule from "./sections/Schedule.jsx";
+import Minyan from "./sections/Minyan.jsx";
 import Announcements from "./sections/Announcements.jsx";
 import Media from "./sections/Media.jsx";
 import Screen from "./sections/Screen.jsx";
@@ -13,7 +14,7 @@ import Settings from "./sections/Settings.jsx";
 import LivePreview from "./sections/LivePreview.jsx";
 
 // Which saved data each page covers, for "last change by …" in its header.
-const PAGE_DATA = { schedule: ["minyanim", "shabbat", "special"], announcements: ["announcements"], media: ["flyers", "photos"], screen: ["settings"], settings: ["settings"] };
+const PAGE_DATA = { minyan: ["minyanim"], schedule: ["minyanim", "shabbat", "special"], announcements: ["announcements"], media: ["flyers", "photos"], screen: ["settings"], settings: ["settings"] };
 const lastEdit = (tv, page) => Object.entries(tv.edits || {})
   .filter(([k]) => !PAGE_DATA[page] || PAGE_DATA[page].includes(k))
   .map(([, v]) => v).sort((a, b) => (b.at || 0) - (a.at || 0))[0];
@@ -21,6 +22,7 @@ const lastEdit = (tv, page) => Object.entries(tv.edits || {})
 const NAV = [
   { group: "Content", items: [
     { id: "home", label: "Overview", icon: LayoutDashboard, blurb: "What's on the screen right now" },
+    { id: "minyan", area: "schedule", label: "Minyan", icon: Users, blurb: "Sign-ups, the log and stats" },
     { id: "schedule", label: "Times", icon: Clock, blurb: "Minyanim, Shabbat and holiday schedules" },
     { id: "announcements", label: "Slides", icon: Megaphone, blurb: "Announcements, Mazal Tov and sponsors" },
     { id: "media", label: "Media", icon: Images, blurb: "Flyers and community photos" },
@@ -138,7 +140,7 @@ export default function App() {
   const isOwner = user.role === "owner";
   // Each manager only sees the pages they are allowed to change.
   const groups = NAV.filter((g) => !g.owner || isOwner)
-    .map((g) => ({ ...g, items: g.items.filter((n) => n.id === "home" || g.owner || can(user, n.id)) }))
+    .map((g) => ({ ...g, items: g.items.filter((n) => n.id === "home" || g.owner || can(user, n.area || n.id)) }))
     .filter((g) => g.items.length);
   const items = groups.flatMap((g) => g.items);
   const current = items.find((n) => n.id === page) || items[0];
@@ -180,6 +182,7 @@ export default function App() {
             </div>
           </header>
           {current.id === "home" && <Home {...props} />}
+          {current.id === "minyan" && <Minyan {...props} />}
           {current.id === "schedule" && <Schedule {...props} />}
           {current.id === "announcements" && <Announcements {...props} />}
           {current.id === "media" && <Media {...props} />}

@@ -426,3 +426,27 @@ form .access-pick { padding-left: 0; }
 .live-new { padding: 16px; border-radius: 16px; background: var(--panel-2); }
 .live-text { display: grid; gap: 10px; }
 .live-send { display: inline-flex; justify-content: center; text-decoration: none; }
+.live-poll { display: grid; gap: 10px; }
+.live-add { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.live-add .input { flex: 1; min-width: 180px; }
+.log { list-style: none; display: grid; gap: 8px; }
+.log-row { border-radius: 16px; background: var(--panel-2); }
+.log-head { display: grid; grid-template-columns: 110px minmax(0, 1fr) 90px auto; align-items: center; gap: 12px; width: 100%; min-height: 54px; padding: 8px 16px; text-align: left; }
+.log-head b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.log-date { font-weight: 700; }
+.log-count { color: var(--muted); font-size: 14px; }
+.log-off .log-head { opacity: .6; }
+.log-body { display: grid; gap: 14px; padding: 4px 16px 18px; }
+.stat-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+.stat-tile { display: grid; gap: 2px; padding: 18px; border-radius: var(--radius); background: var(--panel); }
+.stat-tile b { font-family: var(--serif); font-size: 36px; font-weight: 800; line-height: 1; }
+.stat-tile span { color: var(--muted); font-size: 14px; font-weight: 600; }
+.records { display: grid; gap: 14px; }
+.records dt { color: var(--muted); font-size: 14px; }
+.records dd { font-weight: 700; }
+.board-table { width: 100%; border-collapse: collapse; font-size: 15px; }
+.board-table th { padding: 6px 8px; text-align: right; color: var(--muted); font-size: 13px; }
+.board-table td { padding: 8px; text-align: right; border-top: 1px solid var(--line-2); font-variant-numeric: tabular-nums; }
+.board-table th:first-child, .board-table td:first-child { text-align: left; }
+@media (max-width: 640px) { .log-head { grid-template-columns: 1fr auto; } .log-head span:nth-child(3) { display: none; } }
+.board-table td:first-child { white-space: nowrap; }

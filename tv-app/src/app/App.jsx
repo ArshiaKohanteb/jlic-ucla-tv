@@ -6,7 +6,7 @@ import { startZmanimEngine } from "../shared/bootstrap.js";
 import { TIMEZONE, formatEpoch, localInfo, addDays, zonedEpoch } from "../shared/schedule.js";
 import { minyanCalendar, TEN } from "../shared/minyan.js";
 import { subscribeSignups, saveSignup, patchSignup, removeSignup } from "../shared/signups.js";
-import { watchAccount, signInGoogle, signInEmail, createEmail, resetPassword, saveProfile, leave, shortName, cleanPhone, friendlyError } from "./account.js";
+import { watchAccount, signInGoogle, signInEmail, createEmail, resetPassword, saveProfile, leave, shortName, friendlyError } from "./account.js";
 
 const clock = (epoch) => {
   if (epoch == null) return "Time to come";
@@ -62,6 +62,32 @@ function Choice({ o, mine, onToggle }) {
       <span className="who" dir="auto">{mine ? (o.people.length > 1 ? `You and ${o.people.length - 1 + o.extra} others` : "You're the first") : names(o)}</span>
       {o.message && <span className="message" dir="auto">{o.message}</span>}
     </button>
+  );
+}
+
+// Suggested times: tick any that work, and everyone sees where the votes are.
+function Poll({ o, mine, onVote }) {
+  const lead = o.options.reduce((best, x) => (x.count > best.count ? x : best), o.options[0]);
+  return (
+    <section className="poll">
+      <div className="poll-head">
+        <span className="name" dir="auto">{o.name}</span>
+        <span className="poll-hint">{o.on ? `We're on at ${clock(o.epoch).time}` : "Tap every time that works"}</span>
+      </div>
+      {o.place && <p className="place" dir="auto">{o.place}</p>}
+      <div className="opts">
+        {o.options.map((x) => {
+          const picked = !!mine && (mine.times ? !!mine.times[x.t] : x.t === o.planned);
+          return (
+            <button key={x.t} className={`opt ${picked ? "is-in" : ""} ${x.t === lead.t && x.count ? "is-lead" : ""}`} aria-pressed={picked} onClick={() => onVote(x.t, picked)}>
+              <span className="opt-top"><Time epoch={x.epoch} /><span className="tick"><Check size={22} strokeWidth={3} /></span></span>
+              <span className="choice-foot"><Marks count={x.count} /><span className="status">{x.count}</span></span>
+            </button>
+          );
+        })}
+      </div>
+      {o.message && <p className="message" dir="auto">{o.message}</p>}
+    </section>
   );
 }
 
@@ -125,32 +151,14 @@ function SignIn({ onClose }) {
   );
 }
 
-function AskPhone({ onSave, onSkip }) {
-  const [v, setV] = useState("");
-  const good = cleanPhone(v);
-  return (
-    <Sheet onClose={onSkip}>
-      <h2>You're in</h2>
-      <p className="sheet-sub">What's your number? We'll text you when minyan is on.</p>
-      <form onSubmit={(e) => { e.preventDefault(); if (good) onSave(good); }}>
-        <label>Phone<input autoFocus type="tel" autoComplete="tel" inputMode="tel" value={v} onChange={(e) => setV(e.target.value)} /></label>
-        <button className="primary" type="submit" disabled={!good}>Done</button>
-      </form>
-      <button className="plain" onClick={onSkip}>Not now</button>
-    </Sheet>
-  );
-}
-
 function Profile({ user, onSave, onClose }) {
   const [name, setName] = useState(user.name);
-  const [phone, setPhone] = useState(user.phone || "");
   const [counts, setCounts] = useState(user.counts !== false);
   return (
     <Sheet onClose={onClose}>
       <h2>Your account</h2>
-      <form onSubmit={(e) => { e.preventDefault(); onSave({ name: name.trim() || user.name, phone: cleanPhone(phone), counts }); }}>
+      <form onSubmit={(e) => { e.preventDefault(); onSave({ name: name.trim() || user.name, counts }); }}>
         <label>Your name<input required value={name} onChange={(e) => setName(e.target.value)} /></label>
-        <label>Phone<input type="tel" autoComplete="tel" value={phone} onChange={(e) => setPhone(e.target.value)} /></label>
         <label className="check"><input type="checkbox" checked={counts} onChange={(e) => setCounts(e.target.checked)} />Count me toward the ten</label>
         <button className="primary" type="submit">Save</button>
       </form>
@@ -187,18 +195,30 @@ export default function App() {
     if (!who) { setPending(o); setSheet("signin"); return; }
     navigator.vibrate?.(12);
     saveSignup(o.date, o.id, who.uid, { name: shortName(who.name), counts: who.counts !== false, at: Date.now() }).catch(fail);
-    if (!who.phone && !sessionStorage.getItem("asked-phone")) setSheet("phone");
   };
   const out = (o) => removeSignup(o.date, o.id, user.uid).catch(fail);
+  // A vote is a sign-up that remembers which times work. No times left means they're out.
+  const vote = (o, t, picked, who = user) => {
+    if (!who) { setPending({ ...o, voteFor: t }); setSheet("signin"); return; }
+    const mine = o.people.find((p) => p.uid === who.uid);
+    const had = mine?.times || (mine && o.planned ? { [o.planned]: true } : {});
+    const times = { ...had };
+    if (picked) delete times[t]; else times[t] = true;
+    if (!Object.keys(times).length) return out(o);
+    navigator.vibrate?.(12);
+    saveSignup(o.date, o.id, who.uid, { name: shortName(who.name), counts: who.counts !== false, at: mine?.at || Date.now(), times }).catch(fail);
+  };
 
   // Finish the tap that started the sign-in.
   useEffect(() => {
     if (user && sheet === "signin") setSheet(null);
-    if (user && pending) { join(pending, user); setPending(null); }
+    if (user && pending) {
+      if (pending.voteFor) vote(pending, pending.voteFor, false, user); else join(pending, user);
+      setPending(null);
+    }
   }, [user]);
 
   const patch = (changes) => saveProfile(user, changes).then(() => { setUser({ ...user, ...changes }); setSheet(null); }, fail);
-  const skipPhone = () => { sessionStorage.setItem("asked-phone", "1"); setSheet(null); };
 
   return (
     <div className="app">
@@ -219,6 +239,7 @@ export default function App() {
           <div className="choices">
             {choices.map((o) => {
               const mine = mineOf(o);
+              if (o.options) return <Poll key={o.id} o={o} mine={mine} onVote={(t, picked) => vote(o, t, picked)} />;
               return <Choice key={o.id} o={o} mine={mine} onToggle={() => (mine ? out(o) : join(o))} />;
             })}
           </div>
@@ -226,7 +247,6 @@ export default function App() {
       </main>
 
       {sheet === "signin" && <SignIn onClose={() => { setSheet(null); setPending(null); }} />}
-      {sheet === "phone" && <AskPhone onSkip={skipPhone} onSave={(phone) => patch({ phone })} />}
       {sheet === "profile" && user && <Profile user={user} onClose={() => setSheet(null)} onSave={patch} />}
       {toast && <div className="toast" role="status">{toast}</div>}
     </div>

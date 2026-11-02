@@ -22,12 +22,33 @@ function dayLabel(date, today) {
   return new Intl.DateTimeFormat("en-US", { weekday: "long", timeZone: "UTC" }).format(new Date(date + "T12:00:00Z"));
 }
 
+// With suggested times, each person votes for any that work and the leading time
+// is the minyan's time (earliest wins a tie). Once an admin picks a time, only the
+// people who said yes to it count. Anyone who signed up before there was a poll
+// counts for the usual time.
+export function pollOf(m, live, people) {
+  const times = [...new Set(live?.options || [])].filter(Boolean).sort();
+  if (!times.length) return { options: null, going: people, time: live?.time || "" };
+  const planned = m.time?.type === "fixed" ? m.time.value : "";
+  const voters = (t) => people.filter((p) => (p.times ? !!p.times[t] : t === planned));
+  const options = times.map((t) => {
+    const list = voters(t);
+    return { t, people: list, count: list.filter((p) => p.counts !== false).length };
+  });
+  if (live?.time) return { options, going: voters(live.time), time: live.time };
+  const lead = options.reduce((best, x) => (x.count > best.count ? x : best), options[0]);
+  return { options, going: lead.people, time: lead.t };
+}
+
 function read(m, date, z, tz, now, today, signups) {
   const live = liveFor(m, date);
-  const epoch = live?.time ? zonedEpoch(date, live.time, tz) : resolveTime(m.time, date, z, tz);
+  const planned = m.time?.type === "fixed" ? m.time.value : "";
+  const fixedEpoch = live?.time ? zonedEpoch(date, live.time, tz) : resolveTime(m.time, date, z, tz);
   const people = signupList(signups, date, m.id);
   const extra = Math.max(0, Number(live?.count) || 0);
-  const count = Math.min(TEN, people.filter((p) => p.counts !== false).length + extra);
+  const { options, going, time } = pollOf(m, live, people);
+  const epoch = !live?.time && time ? zonedEpoch(date, time, tz) : fixedEpoch;
+  const count = Math.min(TEN, going.filter((p) => p.counts !== false).length + extra);
   const off = live?.state === "off";
   const on = !off && (live?.state === "on" || count >= TEN);
   const started = on && epoch != null && now >= epoch;
@@ -35,6 +56,9 @@ function read(m, date, z, tz, now, today, signups) {
     id: m.id, name: m.name, date, epoch, count, on, off, started,
     known: !!live || people.length > 0,
     people,
+    going,
+    options: live?.time ? null : options?.map((x) => ({ ...x, epoch: zonedEpoch(date, x.t, tz) })) || null,
+    planned,
     extra,
     place: live?.place || m.place || "",
     message: live?.message || "",

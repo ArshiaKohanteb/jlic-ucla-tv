@@ -1,13 +1,10 @@
-import React, { useEffect, useState } from "react";
-import { Users, Plus, X } from "lucide-react";
+import React, { useState } from "react";
+import { Users, Plus, X, Check } from "lucide-react";
 import { Card, Stepper, Segmented, Field, Button, ClockInput, useDraft, todayKey } from "../ui.jsx";
 import { uid } from "../../shared/defaults.js";
 import { writeTv } from "../../shared/store.js";
 import { minyanCalendar, liveFor } from "../../shared/minyan.js";
-import { subscribeSignups, removeSignup } from "../../shared/signups.js";
-import { get, ref } from "firebase/database";
-import { db } from "../../shared/firebase.js";
-import { isDemo } from "../../shared/store.js";
+import { removeSignup } from "../../shared/signups.js";
 import { TIMEZONE, formatHHMM, formatEpoch } from "../../shared/schedule.js";
 
 const ROOMS = ["Beit Midrash", "Prayer Room", "Law School 2477"];
@@ -38,37 +35,59 @@ function Row({ o, items, setItems }) {
       <Field label="Room">
         <input className="input" list="minyan-rooms" placeholder="Beit Midrash" value={live.place || ""} onChange={(e) => put({ place: e.target.value })} />
       </Field>
-      <TextEveryone o={o} onSent={(message) => put({ message })} />
+      <TimePoll o={o} live={live} put={put} planned={planned} />
+      <SendWhatsApp o={o} onSent={(message) => put({ message })} />
     </div>
   );
 }
 
-const IOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-const smsLink = (numbers, body) => (IOS
-  ? `sms:/open?addresses=${numbers.join(",")}&body=${encodeURIComponent(body)}`
-  : `sms:${numbers.join(",")}?body=${encodeURIComponent(body)}`);
-
-// Opens the admin's own Messages app with everyone signed up and the words filled in.
-function TextEveryone({ o, onSent }) {
-  const when = o.epoch != null ? `at ${formatEpoch(o.epoch, TIMEZONE).time} ${formatEpoch(o.epoch, TIMEZONE).ampm}` : "";
-  const [body, setBody] = useState(`Minyan is on! ${o.name} ${o.day.toLowerCase()} ${when}${o.place ? ` in the ${o.place}` : ""}.`.replace(/\s+/g, " "));
-  const [numbers, setNumbers] = useState(null);
-  const key = o.people.map((p) => p.uid).join();
-  useEffect(() => {
-    let live = true;
-    if (isDemo()) { setNumbers(o.people.map((_, i) => `+1310555010${i}`)); return; }
-    Promise.all(o.people.map((p) => get(ref(db, `users/${p.uid}/phone`)).then((s) => s.val()).catch(() => null)))
-      .then((list) => live && setNumbers(list.filter(Boolean)));
-    return () => { live = false; };
-  }, [key]);
-  if (!o.people.length) return null;
-  const found = numbers?.length || 0;
+// Opens WhatsApp with the words filled in, to send to the group. WhatsApp has no free
+// way to message people automatically, so a person presses send.
+function SendWhatsApp({ o, onSent }) {
+  const time = o.epoch != null ? formatEpoch(o.epoch, TIMEZONE) : null;
+  const [body, setBody] = useState(`Minyan is on! ${o.name} ${o.day.toLowerCase()}${time ? ` at ${time.time} ${time.ampm}` : ""}${o.place ? ` in the ${o.place}` : ""}.`);
   return (
     <div className="live-text">
-      <Field label="Text everyone signed up" hint={numbers ? `${found} of ${o.people.length} have a phone number` : "Finding numbers…"}>
+      <Field label="Message the group" hint="Opens WhatsApp so you can pick the group. It also shows on the sign-up site.">
         <textarea className="input" rows={2} value={body} onChange={(e) => setBody(e.target.value)} />
       </Field>
-      {found > 0 && <a className="btn btn-primary live-send" href={smsLink(numbers, body)} onClick={() => onSent(body)}>Open in Messages</a>}
+      <a className="btn btn-primary live-send" href={`https://wa.me/?text=${encodeURIComponent(body)}`} target="_blank" rel="noreferrer" onClick={() => onSent(body)}>Send on WhatsApp</a>
+    </div>
+  );
+}
+
+// Offer a few times and let the votes decide. Picking one closes the poll.
+function TimePoll({ o, live, put, planned }) {
+  const [adding, setAdding] = useState("08:00");
+  const options = [...new Set(live.options || [])].sort();
+  const set = (list) => put({ options: list });
+  if (live.time && options.length) {
+    return (
+      <div className="live-poll">
+        <span className="hint">Time set to {formatHHMM(live.time)}.</span>
+        <Button variant="secondary" onClick={() => put({ time: "" })}>Reopen the vote</Button>
+      </div>
+    );
+  }
+  return (
+    <div className="live-poll">
+      <Field label="Suggested times" hint="People vote for every time that works, and the leading time shows on the TV">
+        <ul className="live-people">
+          {options.map((t) => {
+            const votes = o.options?.find((x) => x.t === t)?.count ?? 0;
+            return (
+              <li key={t}>{formatHHMM(t)} · {votes}
+                <button aria-label={`Use ${formatHHMM(t)}`} title="Use this time" onClick={() => put({ time: t })}><Check size={14} /></button>
+                <button aria-label={`Remove ${formatHHMM(t)}`} onClick={() => set(options.filter((x) => x !== t))}><X size={14} /></button>
+              </li>
+            );
+          })}
+        </ul>
+      </Field>
+      <div className="live-add">
+        <ClockInput value={adding} onChange={setAdding} />
+        <Button variant="secondary" icon={Plus} onClick={() => adding && set([...new Set([...(options.length ? options : planned ? [planned] : []), adding])])}>Add time</Button>
+      </div>
     </div>
   );
 }
@@ -93,14 +112,12 @@ function NewMinyan({ onAdd, onClose }) {
 }
 
 // Who's signed up, and the admin's overrides. Sign-ups turn it to "We're on" at ten by themselves.
-export default function LiveMinyan({ tv, z }) {
+export default function LiveMinyan({ tv, z, signups }) {
   const [items, setItems] = useDraft(tv.minyanim, (v) => writeTv("minyanim", v));
-  const [signups, setSignups] = useState({});
   const [adding, setAdding] = useState(false);
-  useEffect(() => subscribeSignups(todayKey(), setSignups, () => {}), []);
   const list = minyanCalendar({ ...tv, minyanim: items }, z, Date.now(), TIMEZONE, signups).slice(0, 4);
   return (
-    <Card title="Are we on?" subtitle="People sign up on the site and it counts itself. Use this to open a minyan or change anything." icon={Users}>
+    <Card title="Coming up" subtitle="People sign up on the site and it counts itself. Use this to offer times, open a minyan or change anything." icon={Users}>
       <datalist id="minyan-rooms">{ROOMS.map((r) => <option key={r} value={r} />)}</datalist>
       <datalist id="minyan-names">{["Shacharit", "Mincha", "Arvit", "Mincha & Arvit"].map((r) => <option key={r} value={r} />)}</datalist>
       <div className="live-list">

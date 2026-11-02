@@ -38,6 +38,20 @@ h1 { font-size: clamp(60px, 19vw, 84px); font-weight: 600; line-height: 1; lette
 .is-on:not(.is-in) .status { color: var(--gold); }
 .who { margin-top: 3px; font-size: 16px; opacity: .72; }
 .message { margin-top: 12px; font-size: 17px; font-weight: 600; }
+.poll { padding: 20px 14px 14px; border-radius: 28px; background: rgba(246, 242, 233, .09); }
+.poll-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 0 8px; }
+.poll-hint { font-size: 15px; color: var(--soft); text-align: right; }
+.poll > .place, .poll > .message { padding: 0 8px; }
+.poll > .message { display: block; margin-bottom: 4px; }
+.opts { display: grid; gap: 8px; margin-top: 12px; }
+.opt { display: block; width: 100%; padding: 12px 14px; border-radius: 20px; background: rgba(246, 242, 233, .08); color: var(--ink); transition: background .3s, color .3s, transform .15s; }
+.opt:active { transform: scale(.98); }
+.opt.is-in { background: var(--ink); color: var(--night); }
+.opt-top { display: flex; align-items: center; justify-content: space-between; }
+.opt .time { font-size: 38px; }
+.opt .tick { width: 42px; height: 42px; }
+.opt .choice-foot { margin-top: 8px; }
+.opt.is-lead:not(.is-in) .status { color: var(--gold); }
 .rest { font-size: 22px; color: var(--soft); }
 
 .today { margin-bottom: 18px; padding: 16px 18px; border-radius: 22px; background: rgba(246, 242, 233, .09); }

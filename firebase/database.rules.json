@@ -55,6 +55,10 @@
         ".read": "auth != null && (auth.uid === $uid || root.child('tvAdmins').child(auth.uid).exists())",
         ".write": "auth != null && auth.uid === $uid"
       }
+    },
+    "attendance": {
+      ".read": "auth != null && root.child('tvAdmins').child(auth.uid).exists()",
+      ".write": "auth != null && root.child('tvAdmins').child(auth.uid).exists()"
     }
   }
 }
