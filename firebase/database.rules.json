@@ -1,0 +1,43 @@
+{
+  "rules": {
+    "tv": {
+      ".read": true,
+      ".write": "auth != null && root.child('tvAdmins').child(auth.uid).child('role').val() === 'owner'",
+      "minyanim": {
+        ".write": "auth != null && root.child('tvAdmins').child(auth.uid).exists() && (root.child('tvAdmins').child(auth.uid).child('role').val() === 'owner' || !root.child('tvAdmins').child(auth.uid).child('access').exists() || root.child('tvAdmins').child(auth.uid).child('access').child('schedule').val() === true)"
+      },
+      "shabbat": {
+        ".write": "auth != null && root.child('tvAdmins').child(auth.uid).exists() && (root.child('tvAdmins').child(auth.uid).child('role').val() === 'owner' || !root.child('tvAdmins').child(auth.uid).child('access').exists() || root.child('tvAdmins').child(auth.uid).child('access').child('schedule').val() === true)"
+      },
+      "special": {
+        ".write": "auth != null && root.child('tvAdmins').child(auth.uid).exists() && (root.child('tvAdmins').child(auth.uid).child('role').val() === 'owner' || !root.child('tvAdmins').child(auth.uid).child('access').exists() || root.child('tvAdmins').child(auth.uid).child('access').child('schedule').val() === true)"
+      },
+      "announcements": {
+        ".write": "auth != null && root.child('tvAdmins').child(auth.uid).exists() && (root.child('tvAdmins').child(auth.uid).child('role').val() === 'owner' || !root.child('tvAdmins').child(auth.uid).child('access').exists() || root.child('tvAdmins').child(auth.uid).child('access').child('announcements').val() === true)"
+      },
+      "flyers": {
+        ".write": "auth != null && root.child('tvAdmins').child(auth.uid).exists() && (root.child('tvAdmins').child(auth.uid).child('role').val() === 'owner' || !root.child('tvAdmins').child(auth.uid).child('access').exists() || root.child('tvAdmins').child(auth.uid).child('access').child('media').val() === true)"
+      },
+      "photos": {
+        ".write": "auth != null && root.child('tvAdmins').child(auth.uid).exists() && (root.child('tvAdmins').child(auth.uid).child('role').val() === 'owner' || !root.child('tvAdmins').child(auth.uid).child('access').exists() || root.child('tvAdmins').child(auth.uid).child('access').child('media').val() === true)"
+      },
+      "settings": {
+        "$key": {
+          ".write": "(auth != null && root.child('tvAdmins').child(auth.uid).exists() && (root.child('tvAdmins').child(auth.uid).child('role').val() === 'owner' || !root.child('tvAdmins').child(auth.uid).child('access').exists() || root.child('tvAdmins').child(auth.uid).child('access').child('screen').val() === true)) || ((auth != null && root.child('tvAdmins').child(auth.uid).exists() && (root.child('tvAdmins').child(auth.uid).child('role').val() === 'owner' || !root.child('tvAdmins').child(auth.uid).child('access').exists() || root.child('tvAdmins').child(auth.uid).child('access').child('media').val() === true)) && $key.matches(/^(communityTitle|showCommunity|communitySeconds|pairVerticalFlyers)$/))"
+        }
+      },
+      "edits": {
+        "$key": {
+          ".write": "auth != null && root.child('tvAdmins').child(auth.uid).exists()"
+        }
+      }
+    },
+    "tvAdmins": {
+      ".read": "auth != null && root.child('tvAdmins').child(auth.uid).exists()",
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && ((!root.child('tvAdmins').exists() && auth.uid === $uid && newData.child('role').val() === 'owner') || root.child('tvAdmins').child(auth.uid).child('role').val() === 'owner')"
+      }
+    }
+  }
+}
