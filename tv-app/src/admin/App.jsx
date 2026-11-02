@@ -22,8 +22,8 @@ const lastEdit = (tv, page) => Object.entries(tv.edits || {})
 const NAV = [
   { group: "Content", items: [
     { id: "home", label: "Overview", icon: LayoutDashboard, blurb: "What's on the screen right now" },
-    { id: "minyan", area: "schedule", label: "Minyan", icon: Users, blurb: "Sign-ups, the log and stats" },
-    { id: "schedule", label: "Times", icon: Clock, blurb: "Minyanim, Shabbat and holiday schedules" },
+    { id: "minyan", area: "schedule", label: "Minyan", icon: Users, blurb: "Polls, who came and stats" },
+    { id: "schedule", label: "Times", icon: Clock, blurb: "Shabbat and holiday schedules" },
     { id: "announcements", label: "Slides", icon: Megaphone, blurb: "Announcements, Mazal Tov and sponsors" },
     { id: "media", label: "Media", icon: Images, blurb: "Flyers and community photos" },
   ] },
@@ -149,7 +149,7 @@ export default function App() {
   const name = user.name || user.email || "";
 
   return (
-    <div className="shell has-rail">
+    <div className={`shell ${current?.id === "minyan" ? "no-rail" : "has-rail"}`}>
       <aside className="sidebar">
         <div className="side-brand"><div className="logo-mark" /><div><span>TV Studio</span></div></div>
         {groups.map((g) => (
@@ -191,7 +191,7 @@ export default function App() {
         </div>
       </main>
 
-      <aside className="rail"><LivePreview tv={tv} controls={can(user, "screen")} /></aside>
+      {current.id !== "minyan" && <aside className="rail"><LivePreview tv={tv} controls={can(user, "screen")} /></aside>}
 
       <nav className="tabbar">
         {items.map((n) => (

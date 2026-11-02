@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Trophy, ListChecks, Plus, X, Trash2 } from "lucide-react";
 import { Card, Button, Field, Stepper, Toggle, Tabs, ClockInput, todayKey } from "../ui.jsx";
-import LiveMinyan from "./LiveMinyan.jsx";
+import Polls from "./Polls.jsx";
 import { uid } from "../../shared/defaults.js";
 import { subscribeAllSignups } from "../../shared/signups.js";
 import { subscribeAttendance, saveCorrection, buildLog, buildStats } from "../../shared/attendance.js";
@@ -131,8 +131,8 @@ export default function Minyan({ tv, z }) {
   }, [log]);
   return (
     <div className="stack">
-      <Tabs value={tab} onChange={setTab} options={[{ value: "live", label: "Coming up" }, { value: "log", label: "Log" }, { value: "stats", label: "Stats" }]} />
-      {tab === "live" && <LiveMinyan tv={tv} z={z} signups={signups} />}
+      <Tabs value={tab} onChange={setTab} options={[{ value: "live", label: "Polls" }, { value: "log", label: "Log" }, { value: "stats", label: "Stats" }]} />
+      {tab === "live" && <Polls tv={tv} z={z} signups={signups} />}
       {tab === "log" && <Log log={log} known={known} today={today} />}
       {tab === "stats" && <Stats s={stats} />}
     </div>

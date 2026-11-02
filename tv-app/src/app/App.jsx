@@ -3,10 +3,12 @@ import { Check, X } from "lucide-react";
 import { useTv, useZmanim, useNow } from "../display/hooks.js";
 import { skyGradient } from "../display/sky.js";
 import { startZmanimEngine } from "../shared/bootstrap.js";
-import { TIMEZONE, formatEpoch, localInfo, addDays, zonedEpoch } from "../shared/schedule.js";
+import { TIMEZONE, formatEpoch, formatHHMM, localInfo, addDays, zonedEpoch } from "../shared/schedule.js";
 import { minyanCalendar, TEN } from "../shared/minyan.js";
 import { subscribeSignups, saveSignup, patchSignup, removeSignup } from "../shared/signups.js";
-import { watchAccount, signInGoogle, signInEmail, createEmail, resetPassword, saveProfile, leave, shortName, cleanPhone, friendlyError } from "./account.js";
+import { ClockInput } from "../admin/ui.jsx";
+import * as P from "../shared/polls.js";
+import { watchAccount, signInGoogle, signInEmail, createEmail, sendCode, linkPhone, resetPassword, saveProfile, leave, shortName, cleanPhone, friendlyError } from "./account.js";
 
 const clock = (epoch) => {
   if (epoch == null) return "Time to come";
@@ -116,6 +118,28 @@ function Sheet({ onClose, children }) {
   );
 }
 
+// Number first, then the code that was texted to it.
+function PhoneCode({ send, onError, onDone }) {
+  const [phone, setPhone] = useState("");
+  const [code, setCode] = useState("");
+  const [sent, setSent] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const go = (e) => {
+    e.preventDefault();
+    setBusy(true);
+    const job = sent ? sent.confirm(code.trim()).then(() => onDone?.()) : send(cleanPhone(phone)).then(setSent);
+    job.catch(onError).finally(() => setBusy(false));
+  };
+  return (
+    <form onSubmit={go}>
+      {sent
+        ? <label>Code from the text<input required autoFocus inputMode="numeric" autoComplete="one-time-code" value={code} onChange={(e) => setCode(e.target.value)} /></label>
+        : <label>Phone number<input required autoFocus type="tel" autoComplete="tel" value={phone} onChange={(e) => setPhone(e.target.value)} /></label>}
+      <button className="primary" type="submit" disabled={busy || (!sent && !cleanPhone(phone))}>{sent ? "Sign in" : "Text me a code"}</button>
+    </form>
+  );
+}
+
 function SignIn({ onClose }) {
   const [mode, setMode] = useState("start");
   const [f, setF] = useState({ name: "", phone: "", email: "", password: "" });
@@ -135,9 +159,10 @@ function SignIn({ onClose }) {
       {mode === "start" ? (
         <>
           <button className="primary" onClick={() => run(signInGoogle)}>Continue with Google</button>
+          <button className="primary light" onClick={() => setMode("phone")}>Use my phone number</button>
           <button className="plain" onClick={() => setMode("email")}>Use email instead</button>
         </>
-      ) : (
+      ) : mode === "phone" ? <PhoneCode send={sendCode} onError={(e) => setMsg(friendlyError(e))} /> : (
         <form onSubmit={submit}>
           {mode === "new" && <label>Your name<input required autoComplete="name" value={f.name} onChange={set("name")} /></label>}
           {mode === "new" && <label>Phone number<input required type="tel" autoComplete="tel" value={f.phone} onChange={set("phone")} /></label>}
@@ -153,17 +178,18 @@ function SignIn({ onClose }) {
   );
 }
 
-// Every account needs a number, including people who came in through Google.
-function NeedPhone({ onSave }) {
-  const [v, setV] = useState("");
+// Every account needs a name and a number, however they came in.
+function NeedInfo({ user, onSave }) {
+  const [name, setName] = useState(user.name || "");
+  const [v, setV] = useState(user.phone || "");
   const [msg, setMsg] = useState("");
   return (
     <div className="sheet-bg">
       <div className="sheet" role="dialog" aria-modal="true">
         <h2>One last thing</h2>
-        <p className="sheet-sub">What's your phone number?</p>
-        <form onSubmit={(e) => { e.preventDefault(); const phone = cleanPhone(v); if (phone) onSave(phone); else setMsg("Check that number."); }}>
-          <label>Phone number<input required autoFocus type="tel" autoComplete="tel" value={v} onChange={(e) => setV(e.target.value)} /></label>
+        <form onSubmit={(e) => { e.preventDefault(); const phone = cleanPhone(v); if (phone) onSave({ name: name.trim(), phone }); else setMsg("Check that number."); }}>
+          {!user.name && <label>Your name<input required autoFocus autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} /></label>}
+          {!user.phone && <label>Phone number<input required type="tel" autoComplete="tel" value={v} onChange={(e) => setV(e.target.value)} /></label>}
           <button className="primary" type="submit">Done</button>
         </form>
         {msg && <p className="sheet-msg" role="alert">{msg}</p>}
@@ -172,9 +198,67 @@ function NeedPhone({ onSave }) {
   );
 }
 
+const waLink = (text) => `https://wa.me/?text=${encodeURIComponent(text)}`;
+const hhmm = (t) => formatHHMM(t);
+
+// An admin's controls for one poll, right on the site.
+function Manage({ tv, o, onClose }) {
+  const [add, setAdd] = useState("08:00");
+  const [room, setRoom] = useState(o.place);
+  const times = o.times.length ? o.times : o.planned ? [o.planned] : [];
+  const votesFor = (t) => o.votes?.find((x) => x.t === t)?.count ?? o.count;
+  const when = o.locked || (o.on ? times[0] : "");
+  const told = `Minyan is on! ${o.name} ${o.day.toLowerCase()}${when ? ` at ${hhmm(when)}` : ""}${o.place ? ` in the ${o.place}` : ""}.`;
+  return (
+    <Sheet onClose={onClose}>
+      <h2 dir="auto">{o.name}</h2>
+      <p className="sheet-sub">{o.day}</p>
+      <div className="mg-times">
+        {times.map((t) => {
+          const picked = o.on && t === when;
+          return (
+            <div key={t} className={`mg-time ${picked ? "on" : ""}`}>
+              <button onClick={() => (picked ? P.reopenPoll(tv, o) : P.confirmPoll(tv, o, t))}>
+                <b>{hhmm(t)}</b><span>{votesFor(t)} of {TEN}</span><em>{picked ? "Confirmed" : "Confirm"}</em>
+              </button>
+              {times.length > 1 && !picked && <button className="mg-x" aria-label={`Remove ${hhmm(t)}`} onClick={() => P.setTimes(tv, o, times.filter((x) => x !== t))}><X size={18} /></button>}
+            </div>
+          );
+        })}
+      </div>
+      <div className="mg-add"><ClockInput value={add} onChange={setAdd} /><button className="mg-link" onClick={() => add && P.setTimes(tv, o, [...times, add])}>Add time</button></div>
+      <label className="mg-room">Room<input value={room} list="site-rooms" placeholder="Beit Midrash" onChange={(e) => setRoom(e.target.value)} onBlur={() => room !== o.place && P.setRoom(tv, o, room)} /></label>
+      {o.on && <a className="primary wa" href={waLink(told)} target="_blank" rel="noreferrer" onClick={() => P.setMessage(tv, o, told)}>Tell the group on WhatsApp</a>}
+      {o.off ? <button className="plain" onClick={() => P.reopenPoll(tv, o)}>Reopen</button> : <button className="plain" onClick={() => { P.cancelPoll(tv, o); onClose(); }}>Not happening</button>}
+    </Sheet>
+  );
+}
+
+const COMMON = { Shacharit: ["08:00", "09:00"], Mincha: ["13:10"], Arvit: ["19:00"] };
+
+function OpenPollSheet({ tv, today, onClose }) {
+  const tomorrow = addDays(today, 1);
+  const [name, setName] = useState("Mincha");
+  const [date, setDate] = useState(today);
+  const [times, setTimes] = useState(COMMON.Mincha);
+  const [add, setAdd] = useState("13:30");
+  return (
+    <Sheet onClose={onClose}>
+      <h2>Open a poll</h2>
+      <div className="pills">{Object.keys(COMMON).map((n) => <button key={n} className={name === n ? "on" : ""} onClick={() => { setName(n); setTimes(COMMON[n]); }}>{n}</button>)}</div>
+      <div className="pills"><button className={date === today ? "on" : ""} onClick={() => setDate(today)}>Today</button><button className={date === tomorrow ? "on" : ""} onClick={() => setDate(tomorrow)}>Tomorrow</button></div>
+      <div className="pills">{times.map((t) => <button key={t} className="on" onClick={() => setTimes(times.filter((x) => x !== t))}>{hhmm(t)} <X size={14} /></button>)}</div>
+      <div className="mg-add"><ClockInput value={add} onChange={setAdd} /><button className="mg-link" onClick={() => add && setTimes([...new Set([...times, add])].sort())}>Add time</button></div>
+      <button className="primary" disabled={!times.length} onClick={() => { P.openPoll(tv, { name, date, times, place: "" }); onClose(); }}>Open poll</button>
+    </Sheet>
+  );
+}
+
 function Profile({ user, onSave, onClose }) {
   const [name, setName] = useState(user.name);
   const [phone, setPhone] = useState(user.phone || "");
+  const [linking, setLinking] = useState(false);
+  const [msg, setMsg] = useState("");
   const [counts, setCounts] = useState(user.counts !== false);
   return (
     <Sheet onClose={onClose}>
@@ -185,6 +269,10 @@ function Profile({ user, onSave, onClose }) {
         <label className="check"><input type="checkbox" checked={counts} onChange={(e) => setCounts(e.target.checked)} />Count me toward the ten</label>
         <button className="primary" type="submit">Save</button>
       </form>
+      {user.admin && !user.phoneLogin && (linking
+        ? <PhoneCode send={linkPhone} onError={(e) => setMsg(friendlyError(e))} onDone={() => { setLinking(false); setMsg("Done. You can sign in with your phone now."); }} />
+        : <button className="plain" onClick={() => setLinking(true)}>Sign in with my phone number too</button>)}
+      {msg && <p className="sheet-msg" role="alert">{msg}</p>}
       <button className="plain" onClick={leave}>Sign out</button>
     </Sheet>
   );
@@ -200,6 +288,7 @@ export default function App() {
   const [sheet, setSheet] = useState(null);
   const [pending, setPending] = useState(null);
   const [toast, setToast] = useState("");
+  const [managing, setManaging] = useState(null);
 
   useEffect(() => watchAccount(setUser), []);
   useEffect(() => subscribeSignups(today, setSignups, () => {}), [today]);
@@ -209,7 +298,11 @@ export default function App() {
 
   const goal = target(now);
   const all = useMemo(() => (tv ? minyanCalendar(tv, z, now, TIMEZONE, signups, 3) : []), [tv, z, now, signups]);
-  const choices = all.filter((o) => o.date === goal.date);
+  // Tomorrow's polls, plus anything an admin opened for another day (a Mincha today, say).
+  const open = all.filter((o) => o.date === goal.date || !o.auto || (o.date === today && o.on));
+  const days = [...new Set(open.map((o) => o.date))].sort();
+  const lead = days[0] || goal.date;
+  const leadWord = open.find((o) => o.date === lead)?.day || goal.word;
   const mineOf = (o) => (user ? o.people.find((p) => p.uid === user.uid) : null);
   const todayRows = all.filter((o) => o.date === today && o.date !== goal.date && mineOf(o));
 
@@ -252,25 +345,39 @@ export default function App() {
       </header>
 
       <main>
-        <h1>{goal.word}</h1>
-        <p className="date">{longDate(goal.date)}</p>
+        <h1>{leadWord}</h1>
+        <p className="date">{longDate(lead)}</p>
         {todayRows.map((o) => (
           <TodayRow key={o.id} o={o} mine={mineOf(o)} onOut={() => out(o)}
             onLate={() => patchSignup(o.date, o.id, user.uid, { late: !mineOf(o).late }).catch(fail)} />
         ))}
-        {!tv ? null : choices.length ? (
-          <div className="choices">
-            {choices.map((o) => {
-              const mine = mineOf(o);
-              if (o.options) return <Poll key={o.id} o={o} mine={mine} onVote={(t, picked) => vote(o, t, picked)} />;
-              return <Choice key={o.id} o={o} mine={mine} onToggle={() => (mine ? out(o) : join(o))} />;
-            })}
-          </div>
-        ) : <p className="rest">No minyan to sign up for yet.</p>}
+        {!tv ? null : days.length ? days.map((d, i) => (
+          <section key={d} className="day">
+            {i > 0 && <h2 className="day-head">{open.find((o) => o.date === d).day}</h2>}
+            <div className="choices">
+              {open.filter((o) => o.date === d).map((o) => {
+                const mine = mineOf(o);
+                return (
+                  <div key={o.id} className="card-wrap">
+                    {o.options
+                      ? <Poll o={o} mine={mine} onVote={(t, picked) => vote(o, t, picked)} />
+                      : <Choice o={o} mine={mine} onToggle={() => (mine ? out(o) : join(o))} />}
+                    {user?.admin && <button className="manage" onClick={() => setManaging(`${o.id}|${o.date}`)}>Manage</button>}
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )) : <p className="rest">No minyan to sign up for yet.</p>}
+        {user?.admin && <button className="open-poll" onClick={() => setSheet("open")}>Open a poll</button>}
       </main>
 
+      <datalist id="site-rooms"><option value="Beit Midrash" /><option value="Prayer Room" /><option value="Law School 2477" /></datalist>
+      <div id="robot-check" />
       {sheet === "signin" && <SignIn onClose={() => { setSheet(null); setPending(null); }} />}
-      {user && !user.phone && <NeedPhone onSave={(phone) => patch({ phone })} />}
+      {user && (!user.phone || !user.name) && <NeedInfo user={user} onSave={(info) => patch(Object.fromEntries(Object.entries(info).filter(([, v]) => v)))} />}
+      {sheet === "open" && <OpenPollSheet tv={tv} today={today} onClose={() => setSheet(null)} />}
+      {managing && open.find((o) => `${o.id}|${o.date}` === managing) && <Manage tv={tv} o={open.find((o) => `${o.id}|${o.date}` === managing)} onClose={() => setManaging(null)} />}
       {sheet === "profile" && user && <Profile user={user} onClose={() => setSheet(null)} onSave={patch} />}
       {toast && <div className="toast" role="status">{toast}</div>}
     </div>

@@ -76,6 +76,8 @@ export const DEFAULT_SETTINGS = {
     candleLighting: 20,
     tzeitMinutes: 30,
   },
+  // A poll reaching ten turns to "We're on" by itself
+  autoConfirm: true,
   // Hidden zmanim (ids) on the schedule screen
   hiddenZmanim: ["alot", "midnight"],
   // Bumped from the dashboard to force every TV to reload

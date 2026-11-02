@@ -27,30 +27,30 @@ function dayLabel(date, today) {
 // people who said yes to it count. Anyone who signed up before there was a poll
 // counts for the usual time.
 export function pollOf(m, live, people) {
-  const times = [...new Set(live?.options || [])].filter(Boolean).sort();
-  if (!times.length) return { options: null, going: people, time: live?.time || "" };
+  const times = [...new Set(live?.options?.length ? live.options : m.options || [])].filter(Boolean).sort();
+  if (times.length < 2) return { options: null, going: people, time: live?.time || times[0] || "", times };
   const planned = m.time?.type === "fixed" ? m.time.value : "";
   const voters = (t) => people.filter((p) => (p.times ? !!p.times[t] : t === planned));
   const options = times.map((t) => {
     const list = voters(t);
     return { t, people: list, count: list.filter((p) => p.counts !== false).length };
   });
-  if (live?.time) return { options, going: voters(live.time), time: live.time };
+  if (live?.time) return { options, going: voters(live.time), time: live.time, times };
   const lead = options.reduce((best, x) => (x.count > best.count ? x : best), options[0]);
-  return { options, going: lead.people, time: lead.t };
+  return { options, going: lead.people, time: lead.t, times };
 }
 
-function read(m, date, z, tz, now, today, signups) {
+function read(m, date, z, tz, now, today, signups, autoConfirm = true) {
   const live = liveFor(m, date);
   const planned = m.time?.type === "fixed" ? m.time.value : "";
   const fixedEpoch = live?.time ? zonedEpoch(date, live.time, tz) : resolveTime(m.time, date, z, tz);
   const people = signupList(signups, date, m.id);
   const extra = Math.max(0, Number(live?.count) || 0);
-  const { options, going, time } = pollOf(m, live, people);
+  const { options, going, time, times } = pollOf(m, live, people);
   const epoch = !live?.time && time ? zonedEpoch(date, time, tz) : fixedEpoch;
   const count = Math.min(TEN, going.filter((p) => p.counts !== false).length + extra);
   const off = live?.state === "off";
-  const on = !off && (live?.state === "on" || count >= TEN);
+  const on = !off && (live?.state === "on" || (autoConfirm && count >= TEN));
   const started = on && epoch != null && now >= epoch;
   return {
     id: m.id, name: m.name, date, epoch, count, on, off, started,
@@ -59,6 +59,11 @@ function read(m, date, z, tz, now, today, signups) {
     going,
     options: live?.time ? null : options?.map((x) => ({ ...x, epoch: zonedEpoch(date, x.t, tz) })) || null,
     planned,
+    times: times || [],
+    votes: options?.map((x) => ({ ...x, epoch: zonedEpoch(date, x.t, tz) })) || null,
+    state: live?.state || "voting",
+    locked: live?.time || "",
+    auto: !m.date,
     extra,
     place: live?.place || m.place || "",
     message: live?.message || "",
@@ -90,7 +95,7 @@ export function minyanCalendar(tv, z, now = Date.now(), tz = TIMEZONE, signups =
       const date = addDays(today, i);
       if (!runsOn(m, date)) continue;
       if (!m.date && (z?.calendar?.[date]?.assur || activeSpecial(tv, date))) continue;
-      const o = read(m, date, z, tz, now, today, signups);
+      const o = read(m, date, z, tz, now, today, signups, tv.settings?.autoConfirm !== false);
       // A minyan with no time yet stays up all day; one that was called off drops off at its time.
       if (o.epoch != null && now > o.epoch + (o.off ? 0 : STILL_ON_MS)) continue;
       found.push(o);

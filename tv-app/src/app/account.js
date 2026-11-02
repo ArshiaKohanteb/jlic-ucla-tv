@@ -3,15 +3,17 @@ import {
   getAuth, onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut,
   signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile,
   sendPasswordResetEmail, setPersistence, browserLocalPersistence,
+  RecaptchaVerifier, signInWithPhoneNumber, linkWithPhoneNumber,
 } from "firebase/auth";
 import { ref, get, update } from "firebase/database";
 import { app, db } from "../shared/firebase.js";
 import { isDemo } from "../shared/store.js";
+import { can } from "../admin/access.js";
 
 const auth = getAuth(app);
 setPersistence(auth, browserLocalPersistence).catch(() => {});
 
-const DEMO = { uid: "demo", name: "Arshia Kohanteb", email: "demo@preview", counts: true, phone: "" };
+const DEMO = { uid: "demo", name: "Arshia Kohanteb", email: "demo@preview", counts: true, phone: "", admin: true };
 
 export function watchAccount(cb) {
   if (isDemo()) {
@@ -20,9 +22,14 @@ export function watchAccount(cb) {
   }
   return onAuthStateChanged(auth, async (user) => {
     if (!user) return cb(null);
-    let saved = null;
+    let saved = null, staff = null;
     try { saved = (await get(ref(db, `users/${user.uid}`))).val(); } catch { /* rules not published yet */ }
-    cb({ uid: user.uid, email: user.email, name: saved?.name || user.displayName || "", counts: saved?.counts !== false, phone: saved?.phone || "" });
+    try { staff = (await get(ref(db, `tvAdmins/${user.uid}`))).val(); } catch { /* not staff */ }
+    cb({
+      uid: user.uid, email: user.email, name: saved?.name || user.displayName || staff?.name || "",
+      counts: saved?.counts !== false, phone: saved?.phone || user.phoneNumber || "",
+      phoneLogin: !!user.phoneNumber, admin: !!staff && can(staff, "schedule"),
+    });
   });
 }
 
@@ -39,6 +46,19 @@ export async function createEmail(name, email, password, phone) {
   await updateProfile(user, { displayName: name.trim() });
   await update(ref(db, `users/${user.uid}`), { name: name.trim(), phone, counts: true });
 }
+// Text-message sign-in. Google requires its invisible robot check first.
+let robotCheck = null;
+const robot = () => (robotCheck ||= new RecaptchaVerifier(auth, "robot-check", { size: "invisible" }));
+export function sendCode(phone) {
+  if (isDemo()) return Promise.resolve({ confirm: async () => demoIn() });
+  return signInWithPhoneNumber(auth, phone, robot());
+}
+// Lets someone who has an email account also sign in with their phone.
+export function linkPhone(phone) {
+  if (isDemo()) return Promise.resolve({ confirm: async () => {} });
+  return linkWithPhoneNumber(auth.currentUser, phone, robot());
+}
+
 export const resetPassword = (email) => sendPasswordResetEmail(auth, email.trim());
 
 export function saveProfile(user, patch) {
@@ -74,6 +94,11 @@ export function friendlyError(e) {
   if (c === "auth/weak-password") return "Use at least 6 characters.";
   if (c === "auth/invalid-email") return "Check that email address.";
   if (c === "auth/popup-blocked") return "Your browser blocked the Google window. Use email below.";
-  if (c === "auth/unauthorized-domain" || c === "auth/operation-not-allowed") return "Google sign-in isn't switched on yet. Use email below.";
+  if (c === "auth/invalid-verification-code") return "That code didn't match.";
+  if (c === "auth/invalid-phone-number") return "Check that phone number.";
+  if (c === "auth/too-many-requests") return "Too many tries. Wait a little and try again.";
+  if (c === "auth/credential-already-in-use" || c === "auth/provider-already-linked") return "That number is already on another account.";
+  if (c === "auth/billing-not-enabled") return "Text sign-in isn't switched on yet. Use email.";
+  if (c === "auth/unauthorized-domain" || c === "auth/operation-not-allowed") return "That sign-in isn't switched on yet. Use email.";
   return "That didn't work. Try again.";
 }

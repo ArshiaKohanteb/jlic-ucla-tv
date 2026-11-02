@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Plus, Trash2, ChevronUp, ChevronDown, CalendarDays, Clock } from "lucide-react";
 import { Card, Button, Field, Toggle, Segmented, Tabs, DaysPicker, TimeEditor, useDraft, todayKey, EditedBy } from "../ui.jsx";
-import { uid, WEEKDAYS } from "../../shared/defaults.js";
+import { uid } from "../../shared/defaults.js";
 import { writeTv, patchTv } from "../../shared/store.js";
 import { addDays, localInfo, resolveTime, formatHHMM, fmt } from "../../shared/schedule.js";
 
@@ -106,18 +106,6 @@ function ItemList({ items, setItems, mode, z, newItem, addLabel }) {
   );
 }
 
-function Weekday({ tv, z }) {
-  // One-time minyanim are managed from Overview and kept out of the weekly list.
-  const oneTime = tv.minyanim.filter((m) => m.date);
-  const [items, setItems] = useDraft(tv.minyanim.filter((m) => !m.date), (v) => writeTv("minyanim", [...v, ...oneTime]));
-  return (
-    <Card title="Weekday minyanim" subtitle="Each time can run on any days, at a set time or relative to a zman. On Yom Tov these are hidden automatically." icon={Clock}>
-      <ItemList items={items} setItems={setItems} mode="daily" z={z} addLabel="Add a minyan"
-        newItem={() => ({ id: uid(), name: "", note: "", days: [...WEEKDAYS], time: { type: "fixed", value: "" } })} />
-    </Card>
-  );
-}
-
 function Shabbat({ tv, z }) {
   const [items, setItems] = useDraft(tv.shabbat, (v) => writeTv("shabbat", v));
   return (
@@ -139,7 +127,7 @@ function Special({ tv, z }) {
   return (
     <Card
       title="Holidays & special days"
-      subtitle="A special schedule replaces the weekday minyanim on its dates (Yom Tov, fast days, Chol HaMoed…)."
+      subtitle="A special schedule replaces the usual polls on its dates (Yom Tov, fast days, Chol HaMoed…)."
       action={<Button variant="primary" icon={Plus} onClick={() => { const id = uid(); setList([...list, { id, title: "", start: today, end: today, active: true, items: [] }]); setOpen(id); }}>New</Button>}
     >
       <div className="special-list">
@@ -179,11 +167,10 @@ function Special({ tv, z }) {
 }
 
 export default function Schedule({ tv, z }) {
-  const [tab, setTab] = useState("weekday");
+  const [tab, setTab] = useState("shabbat");
   return (
     <div className="stack">
-      <Tabs value={tab} onChange={setTab} options={[{ value: "weekday", label: "Weekday minyanim" }, { value: "shabbat", label: "Shabbat & Yom Tov" }, { value: "special", label: "Special days" }]} />
-      {tab === "weekday" && <Weekday tv={tv} z={z} />}
+      <Tabs value={tab} onChange={setTab} options={[{ value: "shabbat", label: "Shabbat & Yom Tov" }, { value: "special", label: "Special days" }]} />
       {tab === "shabbat" && <Shabbat tv={tv} z={z} />}
       {tab === "special" && <Special tv={tv} z={z} />}
     </div>

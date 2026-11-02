@@ -20,13 +20,13 @@ This site has its own Firebase project and shares nothing with any other TV.
 6. **Web app config:** **Project settings (gear) → General → Your apps → Web (`</>`)**, nickname `tv`, no Hosting. Copy the `firebaseConfig` block into [`tv-app/src/shared/firebase.js`](tv-app/src/shared/firebase.js), replacing the `PASTE_...` values. These values are safe to publish; the rules protect the data.
 7. **Owner account:** open `<site>/admin/`, choose **First-time setup**, enter your email and a password. Only the very first account can do this. Add everyone else under **People**.
 
-## Are we on?
+## Polls
 
-People sign up at the site, and the count, the TV and the dashboard update on their own. Ten sign-ups turns a minyan to "We're on". The dashboard's **Minyan** page lets an admin create a one-time minyan, remove someone, add people who aren't on the site, change the time or room, or force "We're on" / "Not today".
+A poll is one minyan on one day, with one time or several to vote on. **Runs by itself** on the dashboard's Minyan page opens the daily ones for the next day, except Shabbat. **Open a poll** adds anything else, like a Mincha for today. Admins can do the same at uclaminyan.com when signed in: **Manage** under each poll, **Open a poll** at the bottom.
 
-The site only offers tomorrow's minyanim (until 3 AM, the coming morning). The dashboard's **Minyan** page handles suggested times, **Send on WhatsApp**, the log and the stats.
+Tap a time to confirm it. Ten votes confirms the leading time by itself unless that's switched off. The log and stats fill in from sign-ups, and anything there can be corrected.
 
-Sign-ups show a first name and last initial, and anyone can read those, because the TV reads them without an account.
+Text-message sign-in needs **Phone** enabled under Firebase Authentication → Sign-in method. Sign-ups show a first name and last initial, and anyone can read those, because the TV reads them without an account.
 
 ## Editing
 
