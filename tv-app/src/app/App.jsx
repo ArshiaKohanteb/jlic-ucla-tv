@@ -317,13 +317,13 @@ export default function App() {
 
   const goal = target(now);
   const all = useMemo(() => (tv ? minyanCalendar(tv, z, now, TIMEZONE, signups, 3) : []), [tv, z, now, signups]);
+  const mineOf = (o) => (user ? o.people.find((p) => p.uid === user.uid) : null);
   // Tomorrow's polls, plus anything an admin opened for another day (a Mincha today, say).
   const open = all.filter((o) => o.date === goal.date || !o.auto || (o.date === today && o.on));
   const openNow = open.filter((o) => !(o.date === today && o.date !== goal.date && mineOf(o)));
   const days = [...new Set(openNow.map((o) => o.date))].sort();
   const lead = days[0] || goal.date;
   const leadWord = openNow.find((o) => o.date === lead)?.day || goal.word;
-  const mineOf = (o) => (user ? o.people.find((p) => p.uid === user.uid) : null);
   const todayRows = all.filter((o) => o.date === today && o.date !== goal.date && mineOf(o));
 
   const entry = (who, more = {}) => ({ name: shortName(who.name), counts: who.counts !== false, at: Date.now(), ...(who.reads ? { reads: true } : {}), ...(who.leads ? { leads: true } : {}), ...more });
