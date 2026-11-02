@@ -41,7 +41,7 @@ export function Count({ o }) {
   const lit = o.on ? TEN : o.count;
   return (
     <div className={`count ${o.on ? "is-on" : ""} ${o.off ? "is-off" : ""}`}>
-      {!o.off && !o.on && <div className="marks" aria-hidden="true">{Array.from({ length: TEN }, (_, i) => <i key={i} className={i < lit ? "in" : ""} />)}</div>}
+      {o.known && !o.off && !o.on && <div className="marks" aria-hidden="true">{Array.from({ length: TEN }, (_, i) => <i key={i} className={i < lit ? "in" : ""} />)}</div>}
       <span>{o.on || o.off ? words.big : o.known ? `${o.count} of ${TEN}` : "Not confirmed"}</span>
     </div>
   );

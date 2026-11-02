@@ -23,6 +23,16 @@ function zmanRow(z, hidden, date) {
   return list.sort((a, b) => a.at - b.at);
 }
 
+// The sky's arc, from sunrise on the left to sunset on the right, drawn up to `f` of the way.
+function arcPath(f) {
+  const pts = [];
+  for (let i = 0; i <= 80; i++) {
+    const x = (i / 80) * f;
+    pts.push(`${(x * 1000).toFixed(1)} ${(ARC - Math.sin(Math.PI * x) * ARC).toFixed(1)}`);
+  }
+  return "M" + pts.join("L");
+}
+
 function Moon({ phase }) {
   const r = 34;
   const waxing = phase < 0.5;
@@ -47,26 +57,31 @@ function Horizon({ z, hidden, now, tz, today }) {
   if (!list.length) return null;
   const nextId = after ? list[0].id : list.find((x) => x.at > now)?.id;
   const n = list.length;
-  const col = (i) => ((i + 0.5) / n) * 100;
   const { sunrise: sr, sunset: ss } = todays;
   const M = 60_000;
-  let sun = null, lift = 0, moon = null;
-  if (sr && ss && now > sr - 6 * M && now < ss + 6 * M) {
-    const i = list.findIndex((x) => x.at > now);
-    const last = n - 1;
-    sun = i > 0 ? col(i - 1) + ((now - list[i - 1].at) / (list[i].at - list[i - 1].at)) * (100 / n) : i === 0 ? col(0) : col(last);
-    lift = now < sr ? (now - sr) / (6 * M) * 0.2 : now > ss ? (ss - now) / (6 * M) * 0.2 : Math.sin((Math.PI * (now - sr)) / (ss - sr));
-  } else if (sr) {
+  // Sunrise to sunset is the whole arc, whatever the zmanim below are doing.
+  const day = sr && ss ? (now - sr) / (ss - sr) : null;
+  const up = day != null && now > sr - 6 * M && now < ss + 6 * M;
+  const f = up ? Math.min(1, Math.max(0, day)) : null;
+  const lift = !up ? 0 : now < sr ? ((now - sr) / (6 * M)) * 0.2 : now > ss ? ((ss - now) / (6 * M)) * 0.2 : Math.sin(Math.PI * f);
+  let moon = null;
+  if (!up && sr) {
     const nextRise = after ? z?.days?.[addDays(today, 1)]?.sunrise || sr + 864e5 : sr;
     const start = after ? todays.tzet : (todays.tzet || ss) - 864e5;
-    const f = (now - start) / (nextRise - start);
-    if (f > 0 && f < 1) moon = { x: 4 + f * 92, y: Math.sin(Math.PI * f) * ARC };
+    const m = (now - start) / (nextRise - start);
+    if (m > 0 && m < 1) moon = { x: m * 100, y: Math.sin(Math.PI * m) * ARC };
   }
+  const pct = up && now >= sr && now <= ss ? Math.round(f * 100) : null;
   return (
     <section className="horizon">
-      {sun != null && <i className="sun-glow" style={{ left: `${sun}%`, bottom: `${200 + Math.max(0, lift) * ARC}px`, opacity: 0.35 + (1 - Math.max(0, lift)) * 0.65 }} />}
+      {up && <i className="sun-glow" style={{ left: `${f * 100}%`, bottom: `${200 + Math.max(0, lift) * ARC}px`, opacity: 0.35 + (1 - Math.max(0, lift)) * 0.65 }} />}
       <div className="track">
-        {sun != null && <i className="sun" style={{ left: `${sun}%`, bottom: `${lift * ARC}px`, background: sunColor(lift * 2.4) }} />}
+        <svg className="dial" viewBox={`0 0 1000 ${ARC}`} preserveAspectRatio="none" aria-hidden="true">
+          <path className="dial-all" d={arcPath(1)} vectorEffect="non-scaling-stroke" />
+          {up && f > 0 && <path className="dial-past" d={arcPath(f)} vectorEffect="non-scaling-stroke" />}
+        </svg>
+        {up && <i className="sun" style={{ left: `${f * 100}%`, bottom: `${lift * ARC}px`, background: sunColor(lift * 2.4) }} />}
+        {pct != null && <span className="dial-pct" style={{ left: `${Math.min(92, Math.max(8, f * 100))}%`, bottom: `${lift * ARC + 48}px` }}>{pct}% of the day</span>}
         {moon && <div className="moon-at" style={{ left: `${moon.x}%`, bottom: `${moon.y}px` }}><Moon phase={moonPhase(now)} /></div>}
       </div>
       <div className="horizon-line" />
