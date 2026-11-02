@@ -1,8 +1,7 @@
 // Accounts for the sign-up site. Firebase keeps people signed in on their device.
 import {
-  getAuth, onAuthStateChanged, signOut,
-  signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile,
-  sendPasswordResetEmail, setPersistence, browserLocalPersistence,
+  getAuth, onAuthStateChanged, signOut, setPersistence, browserLocalPersistence,
+  sendSignInLinkToEmail, isSignInWithEmailLink, signInWithEmailLink,
   RecaptchaVerifier, signInWithPhoneNumber, linkWithPhoneNumber,
 } from "firebase/auth";
 import { ref, get, update } from "firebase/database";
@@ -28,7 +27,7 @@ export function watchAccount(cb) {
     cb({
       uid: user.uid, email: user.email, name: saved?.name || user.displayName || staff?.name || "",
       counts: saved?.counts !== false, phone: saved?.phone || user.phoneNumber || "",
-      reads: !!saved?.reads, leads: !!saved?.leads, phoneLogin: !!user.phoneNumber, admin: !!staff && can(staff, "schedule"),
+      phoneLogin: !!user.phoneNumber, admin: !!staff && can(staff, "schedule"),
     });
   });
 }
@@ -38,13 +37,6 @@ function demoIn() {
   location.reload();
 }
 
-export const signInEmail = (email, password) => (isDemo() ? demoIn() : signInWithEmailAndPassword(auth, email.trim(), password));
-export async function createEmail(name, email, password, phone) {
-  if (isDemo()) return demoIn();
-  const { user } = await createUserWithEmailAndPassword(auth, email.trim(), password);
-  await updateProfile(user, { displayName: name.trim() });
-  await update(ref(db, `users/${user.uid}`), { name: name.trim(), phone, counts: true });
-}
 // Text-message sign-in. Google requires its invisible robot check first.
 let robotCheck = null;
 const robot = () => (robotCheck ||= new RecaptchaVerifier(auth, "robot-check", { size: "invisible" }));
@@ -58,7 +50,21 @@ export function linkPhone(phone) {
   return linkWithPhoneNumber(auth.currentUser, phone, robot());
 }
 
-export const resetPassword = (email) => sendPasswordResetEmail(auth, email.trim());
+// No passwords: we email a link, and opening it signs you in.
+const LINK_EMAIL = "signin-email";
+export function sendEmailLink(email, path = "") {
+  const clean = email.trim();
+  localStorage.setItem(LINK_EMAIL, clean);
+  if (isDemo()) return Promise.resolve();
+  return sendSignInLinkToEmail(auth, clean, { url: `${location.origin}${import.meta.env.BASE_URL}${path}`, handleCodeInApp: true });
+}
+export const cameFromEmailLink = () => !isDemo() && isSignInWithEmailLink(auth, location.href);
+export const rememberedEmail = () => localStorage.getItem(LINK_EMAIL) || "";
+export async function finishEmailLink(email) {
+  await signInWithEmailLink(auth, email.trim(), location.href);
+  localStorage.removeItem(LINK_EMAIL);
+  history.replaceState(null, "", location.pathname);
+}
 
 export function saveProfile(user, patch) {
   if (isDemo()) { localStorage.setItem("jlic-app-demo-user", JSON.stringify({ ...user, ...patch })); return Promise.resolve(); }
@@ -87,9 +93,7 @@ export function shortName(name) {
 
 export function friendlyError(e) {
   const c = e?.code || "";
-  if (c === "auth/invalid-credential" || c === "auth/wrong-password" || c === "auth/user-not-found") return "That email or password didn't match.";
-  if (c === "auth/email-already-in-use") return "That email already has an account. Sign in instead.";
-  if (c === "auth/weak-password") return "Use at least 6 characters.";
+  if (c === "auth/invalid-action-code" || c === "auth/expired-action-code") return "That link has expired. Ask for a new one.";
   if (c === "auth/invalid-email") return "Check that email address.";
   if (c === "auth/invalid-verification-code") return "That code didn't match.";
   if (c === "auth/invalid-phone-number") return "Check that phone number.";

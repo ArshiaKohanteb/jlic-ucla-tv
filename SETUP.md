@@ -18,7 +18,7 @@ This site has its own Firebase project and shares nothing with any other TV.
 4. **Database:** **Build → Realtime Database → Create database**, **United States (us-central1)**, **locked mode**. On the **Rules** tab paste [`firebase/database.rules.json`](firebase/database.rules.json) and **Publish**.
 5. **Storage:** **Build → Storage → Get started**, default location, **production mode**. On the **Rules** tab paste [`firebase/storage.rules`](firebase/storage.rules) and **Publish**.
 6. **Web app config:** **Project settings (gear) → General → Your apps → Web (`</>`)**, nickname `tv`, no Hosting. Copy the `firebaseConfig` block into [`tv-app/src/shared/firebase.js`](tv-app/src/shared/firebase.js), replacing the `PASTE_...` values. These values are safe to publish; the rules protect the data.
-7. **Owner account:** open `<site>/admin/`, choose **First-time setup**, enter your email and a password. Only the very first account can do this. Add everyone else under **People**.
+7. **Owner account:** open `<site>/admin/`, choose **First-time setup**, enter your name and email. Only the very first account can do this. Add everyone else under **People**.
 
 ## Polls
 
@@ -26,7 +26,7 @@ A poll is one minyan on one day, with one time or several to vote on. **Runs by 
 
 Tap a time to confirm it. Ten votes confirms the leading time by itself unless that's switched off. The log and stats fill in from sign-ups, and anything there can be corrected.
 
-Text-message sign-in needs **Phone** enabled under Firebase Authentication → Sign-in method. Sign-ups show a first name and last initial, and anyone can read those, because the TV reads them without an account.
+There are no passwords. People sign in with a texted code or an emailed link, which needs **Phone** and **Email/Password → Email link (passwordless sign-in)** enabled under Firebase Authentication → Sign-in method. A Bruin ID is the UCLA logon: the link goes to that name at g.ucla.edu. Sign-ups show a first name and last initial, and anyone can read those, because the TV reads them without an account.
 
 ## Editing
 

@@ -47,4 +47,5 @@ export const addAuto = (tv, { name, times, place }) => {
   return save([...tv.minyanim, { id: uid(), name, note: "", days: EVERY_DAY, place: place || "", options: list, time: { type: "fixed", value: list[0] || "" } }]);
 };
 export const setPollClose = (pollClose) => patchTv("settings", { pollClose });
+export const setShowNames = (showNames) => patchTv("settings", { showNames });
 export const setAutoConfirm = (on) => patchTv("settings", { autoConfirm: on });

@@ -71,6 +71,7 @@ function read(m, date, z, tz, now, today, signups, { autoConfirm = true, closeAt
     closes: closeAt && date > today ? zonedEpoch(addDays(date, -1), closeAt, tz) : null,
     needsReader: /shach/i.test(m.name || "") && [1, 4].includes(weekdayOf(date)),
     reader: going.find((p) => p.reads)?.name || "",
+    leader: going.find((p) => p.leads)?.name || "",
     note: m.note || "",
     day: dayLabel(date, today),
     need: TEN - count,

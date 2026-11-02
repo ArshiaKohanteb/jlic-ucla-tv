@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { UserPlus, Trash2 } from "lucide-react";
 import { Card, Button, Field, Segmented } from "../ui.jsx";
-import { listManagers, addManager, removeManager, setManagerRole, setManagerAccess, resetPassword } from "../services.js";
+import { listManagers, addManager, removeManager, setManagerRole, setManagerAccess } from "../services.js";
 import { AREAS, PRESETS, FULL_ACCESS, accessOf, accessSummary } from "../access.js";
 import { isDemo } from "../../shared/store.js";
 
@@ -27,7 +27,7 @@ function AccessPicker({ value, onChange }) {
 
 export default function Managers({ user }) {
   const [list, setList] = useState({});
-  const [form, setForm] = useState({ name: "", email: "", password: "", role: "manager", access: FULL_ACCESS });
+  const [form, setForm] = useState({ name: "", email: "", role: "manager", access: FULL_ACCESS });
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -41,11 +41,11 @@ export default function Managers({ user }) {
     e.preventDefault();
     setBusy(true); setMsg("");
     try {
-      await addManager(form.email, form.password, form.name, form.role, form.access);
-      setMsg(`Added ${form.email}. Send them the dashboard link and their password.`);
-      setForm({ name: "", email: "", password: "", role: "manager", access: FULL_ACCESS });
+      await addManager(form.email, form.name, form.role, form.access);
+      setMsg(`Added ${form.email}. Send them the dashboard link. They sign in with an emailed link.`);
+      setForm({ name: "", email: "", role: "manager", access: FULL_ACCESS });
     } catch (err) {
-      setMsg(err.code === "auth/email-already-in-use" ? "That email already has an account." : err.code === "auth/weak-password" ? "Password needs at least 6 characters." : err.message);
+      setMsg(err.code === "auth/email-already-in-use" ? "That email already has an account."  : err.message);
     }
     setBusy(false);
   }
@@ -79,7 +79,6 @@ export default function Managers({ user }) {
           <div className="grid-2">
             <Field label="Name"><input className="input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></Field>
             <Field label="Email"><input type="email" required className="input" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></Field>
-            <Field label="Starting password" hint="They can change it with 'Forgot password' on the sign-in page."><input required minLength={6} className="input" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} /></Field>
             <Field label="Role"><Segmented value={form.role} onChange={(role) => setForm({ ...form, role })} options={[{ value: "manager", label: "Manager" }, { value: "owner", label: "Owner" }]} /></Field>
           </div>
           {form.role === "manager"
@@ -92,7 +91,6 @@ export default function Managers({ user }) {
 
       <Card title="Your account">
         <p className="hint">Signed in as <b>{user.email}</b>.</p>
-        <Button onClick={() => resetPassword(user.email).then(() => alert("Check your email for a link to set a new password."))}>Email me a password reset link</Button>
       </Card>
     </div>
   );

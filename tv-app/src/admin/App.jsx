@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { LayoutDashboard, Users, Clock, Megaphone, Images, MonitorSmartphone, Settings as SettingsIcon, LogOut } from "lucide-react";
 import { subscribeTv, seedTv, isDemo, setEditor } from "../shared/store.js";
-import { watchUser, signIn, signOutUser, resetPassword, claimOwner } from "./services.js";
+import { watchUser, signOutUser, claimOwner } from "./services.js";
+import { sendEmailLink, cameFromEmailLink, rememberedEmail, finishEmailLink, sendCode, cleanPhone, friendlyError } from "../app/account.js";
 import { Button, Field, EditedBy } from "./ui.jsx";
 import { can } from "./access.js";
 import Home from "./sections/Home.jsx";
@@ -46,30 +47,32 @@ function useZmanim() {
 }
 
 function Login() {
-  const [mode, setMode] = useState("signin");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [mode, setMode] = useState("email");
+  const [value, setValue] = useState("");
   const [name, setName] = useState("");
+  const [code, setCode] = useState("");
+  const [sent, setSent] = useState(null);
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (cameFromEmailLink()) finishEmailLink(rememberedEmail() || prompt("Which email did you use?") || "").catch((e) => setMsg(friendlyError(e)));
+  }, []);
 
   async function submit(e) {
     e.preventDefault();
     setBusy(true); setMsg("");
     try {
-      if (mode === "signin") await signIn(email, password);
-      else if (mode === "reset") { await resetPassword(email); setMsg("Check your email for a reset link."); }
-      else await claimOwner(email, password, name);
+      if (mode === "setup") await claimOwner(value, name);
+      else if (mode === "phone" && sent) await sent.confirm(code.trim());
+      else if (mode === "phone") setSent(await sendCode(cleanPhone(value)));
+      else { await sendEmailLink(value, "admin/"); setMsg(`Check ${value.trim()} and tap the link.`); }
     } catch (err) {
-      const c = err.code || "";
-      setMsg(c.includes("invalid-credential") || c.includes("wrong-password") || c.includes("user-not-found") ? "Email or password is incorrect."
-        : c.includes("too-many-requests") ? "Too many tries. Wait a minute and try again."
-        : c.includes("operation-not-allowed") || c.includes("configuration-not-found") ? "Email sign-in isn't turned on in Firebase yet (see the setup guide)."
-        : c.includes("email-already-in-use") ? "That email already has an account. Sign in instead."
-        : err.message);
+      setMsg(friendlyError(err));
     }
     setBusy(false);
   }
+  const switchTo = (m) => { setMode(m); setValue(""); setSent(null); setMsg(""); };
 
   return (
     <div className="login">
@@ -77,22 +80,24 @@ function Login() {
         <div className="login-brand">
           <div className="logo-mark" />
           <h1>JLIC UCLA<br />TV Studio</h1>
-          <p>{mode === "setup" ? "First-time setup: create the owner account" : mode === "reset" ? "Reset your password" : "Sign in to manage the display"}</p>
+          <p>{mode === "setup" ? "First-time setup: create the owner account" : "Sign in to manage the display"}</p>
         </div>
         {mode === "setup" && <Field label="Your name"><input className="input" value={name} onChange={(e) => setName(e.target.value)} /></Field>}
-        <Field label="Email"><input className="input" type="email" autoComplete="username" required value={email} onChange={(e) => setEmail(e.target.value)} /></Field>
-        {mode !== "reset" && (
-          <Field label="Password"><input className="input" type="password" autoComplete={mode === "setup" ? "new-password" : "current-password"} required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} /></Field>
-        )}
+        {mode === "phone"
+          ? (sent
+            ? <Field label="Code from the text"><input className="input" required inputMode="numeric" autoComplete="one-time-code" value={code} onChange={(e) => setCode(e.target.value)} /></Field>
+            : <Field label="Phone number"><input className="input" type="tel" required autoComplete="tel" value={value} onChange={(e) => setValue(e.target.value)} /></Field>)
+          : <Field label="Email"><input className="input" type="email" autoComplete="username" required value={value} onChange={(e) => setValue(e.target.value)} /></Field>}
         <Button variant="primary" className="btn-block" disabled={busy}>
-          {busy ? "One moment…" : mode === "signin" ? "Sign in" : mode === "reset" ? "Send reset link" : "Create owner account"}
+          {busy ? "One moment…" : mode === "setup" ? "Create owner account" : mode === "email" ? "Email me a link" : sent ? "Sign in" : "Text me a code"}
         </Button>
         {msg && <p className="login-msg">{msg}</p>}
         <div className="login-links">
-          {mode !== "signin" && <button type="button" onClick={() => setMode("signin")}>Back to sign in</button>}
-          {mode === "signin" && <button type="button" onClick={() => setMode("reset")}>Forgot password?</button>}
-          {mode === "signin" && <button type="button" onClick={() => setMode("setup")}>First-time setup</button>}
+          {mode !== "email" && <button type="button" onClick={() => switchTo("email")}>Use email</button>}
+          {mode !== "phone" && <button type="button" onClick={() => switchTo("phone")}>Use my phone number</button>}
+          {mode !== "setup" && <button type="button" onClick={() => switchTo("setup")}>First-time setup</button>}
         </div>
+        <div id="robot-check" />
       </form>
     </div>
   );

@@ -79,7 +79,7 @@ function Poll({ tv, o, regulars, now }) {
   const [edit, setEdit] = useState(false);
   const [room, setRoom] = useState(o.place);
   const [perk, setPerk] = useState(o.perk);
-  const notes = [needWords(o), closeWords(o, now), o.perk, o.needsReader ? (o.reader ? `Torah reader: ${o.reader}` : "No Torah reader yet") : ""].filter(Boolean);
+  const notes = [needWords(o), closeWords(o, now), o.perk, o.leader ? `Chazan: ${o.leader}` : "", o.needsReader ? (o.reader ? `Torah reader: ${o.reader}` : "No Torah reader yet") : ""].filter(Boolean);
   const here = o.people.filter((p) => p.here).length;
   const choices = o.votes?.length ? o.votes : o.times.length ? o.times.map((t) => ({ t, count: o.count })) : o.planned ? [{ t: o.planned, count: o.count }] : [];
   const state = o.off ? "Not happening" : o.on ? "We're on" : "Voting";
@@ -180,6 +180,7 @@ export default function Polls({ tv, z, signups, regulars }) {
         <ul className="au-list">{autos.map((m) => <AutoRow key={m.id} tv={tv} m={m} />)}</ul>
         <Button variant="secondary" icon={Plus} onClick={() => P.addAuto(tv, { name: "Mincha", times: ["13:10"] })}>Add a daily poll</Button>
         <Field label="Polls close the night before at" hint="A countdown runs until then. People can still vote after, as a last call."><ClockInput value={tv.settings.pollClose ?? "22:30"} onChange={P.setPollClose} /></Field>
+        <Toggle label="Everyone can see who signed up" hint="Off means people only see the count" checked={tv.settings.showNames !== false} onChange={P.setShowNames} />
         <Toggle label="Turn to We're on at ten" hint="The leading time is confirmed for you" checked={tv.settings.autoConfirm !== false} onChange={P.setAutoConfirm} />
       </Card>
       {opening && <OpenPoll tv={tv} onClose={() => setOpening(false)} />}

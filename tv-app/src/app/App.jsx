@@ -8,7 +8,7 @@ import { minyanCalendar, closeWords, needWords, canCheckIn, myRecord, TEN } from
 import { subscribeAllSignups, saveSignup, patchSignup, removeSignup } from "../shared/signups.js";
 import { ClockInput } from "../admin/ui.jsx";
 import * as P from "../shared/polls.js";
-import { watchAccount, signInEmail, createEmail, sendCode, linkPhone, resetPassword, saveProfile, leave, shortName, cleanPhone, friendlyError } from "./account.js";
+import { watchAccount, sendEmailLink, cameFromEmailLink, rememberedEmail, finishEmailLink, sendCode, linkPhone, saveProfile, leave, shortName, cleanPhone, friendlyError } from "./account.js";
 
 const clock = (epoch) => {
   if (epoch == null) return "Time to come";
@@ -50,7 +50,7 @@ function Marks({ count }) {
 function Meta({ o, now }) {
   const close = closeWords(o, now);
   const need = needWords(o);
-  const lines = [o.perk, o.needsReader && !o.off ? (o.reader ? `Torah reader: ${o.reader}` : "No Torah reader yet") : ""].filter(Boolean);
+  const lines = [o.perk, !o.off && o.leader ? `Chazan: ${o.leader}` : "", o.needsReader && !o.off ? (o.reader ? `Torah reader: ${o.reader}` : "No Torah reader yet") : ""].filter(Boolean);
   if (!close && !need && !lines.length) return null;
   return (
     <span className="meta">
@@ -60,7 +60,7 @@ function Meta({ o, now }) {
   );
 }
 
-function Choice({ o, mine, onToggle, now }) {
+function Choice({ o, mine, onToggle, now, showNames }) {
   const status = o.off ? "Not happening" : o.on ? "We're on" : `${o.count} of ${TEN}`;
   return (
     <button className={`choice ${mine ? "is-in" : ""} ${o.on ? "is-on" : ""}`} disabled={o.off} aria-pressed={!!mine} onClick={onToggle}>
@@ -74,7 +74,7 @@ function Choice({ o, mine, onToggle, now }) {
         {!o.on && !o.off && <Marks count={o.count} />}
         <span className="status">{status}</span>
       </span>
-      <span className="who" dir="auto">{mine ? (o.people.length > 1 ? `You and ${o.people.length - 1 + o.extra} ${o.people.length - 1 + o.extra === 1 ? "other" : "others"}` : "You're the first") : names(o)}</span>
+      {(showNames || mine) && <span className="who" dir="auto">{mine ? (o.people.length > 1 ? `You and ${o.people.length - 1 + o.extra} ${o.people.length - 1 + o.extra === 1 ? "other" : "others"}` : "You're the first") : names(o)}</span>}
       <Meta o={o} now={now} />
       {o.on && o.message && <span className="message" dir="auto">{o.message}</span>}
     </button>
@@ -82,7 +82,7 @@ function Choice({ o, mine, onToggle, now }) {
 }
 
 // Suggested times: tick any that work, and everyone sees where the votes are.
-function Poll({ o, mine, onVote, now }) {
+function Poll({ o, mine, onVote, now, showNames }) {
   const lead = o.options.reduce((best, x) => (x.count > best.count ? x : best), o.options[0]);
   return (
     <section className="poll">
@@ -98,6 +98,7 @@ function Poll({ o, mine, onVote, now }) {
             <button key={x.t} className={`opt ${picked ? "is-in" : ""} ${x.t === lead.t && x.count ? "is-lead" : ""}`} aria-pressed={picked} onClick={() => onVote(x.t, picked)}>
               <span className="opt-top"><Time epoch={x.epoch} /><span className="tick"><Check size={22} strokeWidth={3} /></span></span>
               <span className="choice-foot"><Marks count={x.count} /><span className="status">{x.count}</span></span>
+              {showNames && x.people.length > 0 && <span className="who" dir="auto">{x.people.map((p) => p.name.split(" ")[0]).join(", ")}</span>}
             </button>
           );
         })}
@@ -119,6 +120,17 @@ function TodayRow({ o, mine, onLate, onOut }) {
         <button onClick={onOut}>Can't make it</button>
       </div>
     </section>
+  );
+}
+
+// Once you're in, you can offer to lead or read right here.
+function Roles({ o, mine, onSet }) {
+  if (!mine || o.off) return null;
+  return (
+    <div className="roles">
+      {(!o.leader || mine.leads) && <button className={mine.leads ? "on" : ""} aria-pressed={!!mine.leads} onClick={() => onSet("leads", !mine.leads)}>{mine.leads ? "You're chazan" : "I'll be chazan"}</button>}
+      {o.needsReader && (!o.reader || mine.reads) && <button className={mine.reads ? "on" : ""} aria-pressed={!!mine.reads} onClick={() => onSet("reads", !mine.reads)}>{mine.reads ? "You're reading Torah" : "I'll read Torah"}</button>}
+    </div>
   );
 }
 
@@ -155,41 +167,78 @@ function PhoneCode({ send, onError, onDone }) {
   );
 }
 
+const UCLA_DOMAIN = "g.ucla.edu";
+
+// A Bruin ID is the UCLA logon: "joebruin" becomes joebruin@g.ucla.edu. The emailed
+// link is what proves it's theirs. The 9-digit number can't be checked, so it's refused.
+const bruinEmail = (v) => {
+  const id = v.trim().toLowerCase();
+  if (id.includes("@")) return /[@.]ucla\.edu$/.test(id) ? id : "";
+  return /^[a-z][a-z0-9._-]{1,30}$/.test(id) ? `${id}@${UCLA_DOMAIN}` : "";
+};
+
+function EmailLink({ ucla, onOther, onError }) {
+  const [value, setValue] = useState("");
+  const [sent, setSent] = useState("");
+  const [msg, setMsg] = useState("");
+  const go = (e) => {
+    e.preventDefault();
+    const email = ucla ? bruinEmail(value) : value.trim();
+    if (!email) { setMsg("Use your UCLA logon, like joebruin, not the 9-digit number."); return; }
+    setMsg("");
+    sendEmailLink(email).then(() => setSent(email), onError);
+  };
+  if (sent) return <p className="sheet-sub">Check {sent} and tap the link. That's it.</p>;
+  return (
+    <form onSubmit={go}>
+      {ucla
+        ? <label>Bruin ID<span className="suffix"><input required autoFocus autoCapitalize="none" autoCorrect="off" autoComplete="username" placeholder="joebruin" value={value} onChange={(e) => setValue(e.target.value)} /><em>@{UCLA_DOMAIN}</em></span></label>
+        : <label>Email<input required autoFocus type="email" autoComplete="email" placeholder="you@example.com" value={value} onChange={(e) => setValue(e.target.value)} /></label>}
+      <button className="primary" type="submit">Email me a link</button>
+      {msg && <p className="sheet-msg" role="alert">{msg}</p>}
+      {ucla && <button type="button" className="plain" onClick={onOther}>I don't have a Bruin ID</button>}
+    </form>
+  );
+}
+
 function SignIn({ onClose }) {
   const [mode, setMode] = useState("start");
-  const [f, setF] = useState({ name: "", phone: "", email: "", password: "" });
   const [msg, setMsg] = useState("");
-  const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
-  const run = (job) => Promise.resolve().then(job).catch((e) => setMsg(friendlyError(e)));
-  const submit = (e) => {
-    e.preventDefault();
-    setMsg("");
-    if (mode === "new" && !/[@.]ucla\.edu$/i.test(f.email.trim())) { setMsg("Use your UCLA email, or sign in with your phone number."); return; }
-    if (mode === "new" && !cleanPhone(f.phone)) { setMsg("Enter your phone number."); return; }
-    run(() => (mode === "new" ? createEmail(f.name, f.email, f.password, cleanPhone(f.phone)) : signInEmail(f.email, f.password)));
-  };
+  const onError = (e) => setMsg(friendlyError(e));
   return (
     <Sheet onClose={onClose}>
       <h2>Welcome</h2>
       <p className="sheet-sub">You'll only do this once.</p>
-      {mode === "start" ? (
+      {mode === "start" && (
         <>
           <button className="primary" onClick={() => setMode("phone")}>Use my phone number</button>
-          <button className="primary light" onClick={() => setMode("new")}>Sign in with UCLA email</button>
+          <button className="primary light" onClick={() => setMode("ucla")}>Sign in with Bruin ID</button>
         </>
-      ) : mode === "phone" ? <PhoneCode send={sendCode} onError={(e) => setMsg(friendlyError(e))} /> : (
-        <form onSubmit={submit}>
-          {mode === "new" && <label>Your name<input required autoComplete="name" value={f.name} onChange={set("name")} /></label>}
-          {mode === "new" && <label>Phone number<input required type="tel" autoComplete="tel" value={f.phone} onChange={set("phone")} /></label>}
-          <label>UCLA email<input required type="email" autoComplete="email" placeholder="you@g.ucla.edu" value={f.email} onChange={set("email")} /></label>
-          <label>Password<input required type="password" minLength={6} autoComplete={mode === "new" ? "new-password" : "current-password"} value={f.password} onChange={set("password")} /></label>
-          <button className="primary" type="submit">{mode === "new" ? "Create account" : "Sign in"}</button>
-          <button type="button" className="plain" onClick={() => { setMsg(""); setMode(mode === "new" ? "email" : "new"); }}>{mode === "new" ? "I have an account" : "New here? Create an account"}</button>
-          {mode === "email" && <button type="button" className="plain" onClick={() => (f.email ? resetPassword(f.email).then(() => setMsg("Check your email for a reset link."), () => setMsg("Check that email address.")) : setMsg("Enter your email first."))}>Forgot password?</button>}
-        </form>
       )}
+      {mode === "phone" && <PhoneCode send={sendCode} onError={onError} />}
+      {mode === "ucla" && <EmailLink ucla onOther={() => setMode("email")} onError={onError} />}
+      {mode === "email" && <EmailLink onError={onError} />}
       {msg && <p className="sheet-msg" role="alert">{msg}</p>}
     </Sheet>
+  );
+}
+
+// A link opened on a different phone or browser has to be told the email again.
+function ConfirmEmail({ onDone }) {
+  const [email, setEmail] = useState("");
+  const [msg, setMsg] = useState("");
+  return (
+    <div className="sheet-bg">
+      <div className="sheet" role="dialog" aria-modal="true">
+        <h2>Almost there</h2>
+        <p className="sheet-sub">Which email did you use?</p>
+        <form onSubmit={(e) => { e.preventDefault(); finishEmailLink(email).then(onDone, (err) => setMsg(friendlyError(err))); }}>
+          <label>Email<input required autoFocus type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} /></label>
+          <button className="primary" type="submit">Sign in</button>
+        </form>
+        {msg && <p className="sheet-msg" role="alert">{msg}</p>}
+      </div>
+    </div>
   );
 }
 
@@ -201,7 +250,7 @@ function NeedInfo({ user, onSave }) {
   return (
     <div className="sheet-bg">
       <div className="sheet" role="dialog" aria-modal="true">
-        <h2>One last thing</h2>
+        <h2>{user.name ? "One last thing" : "What's your name?"}</h2>
         <form onSubmit={(e) => { e.preventDefault(); const phone = cleanPhone(v); if (phone) onSave({ name: name.trim(), phone }); else setMsg("Check that number."); }}>
           {!user.name && <label>Your name<input required autoFocus autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} /></label>}
           {!user.phone && <label>Phone number<input required type="tel" autoComplete="tel" value={v} onChange={(e) => setV(e.target.value)} /></label>}
@@ -275,17 +324,13 @@ function Profile({ user, onSave, onClose }) {
   const [linking, setLinking] = useState(false);
   const [msg, setMsg] = useState("");
   const [counts, setCounts] = useState(user.counts !== false);
-  const [reads, setReads] = useState(!!user.reads);
-  const [leads, setLeads] = useState(!!user.leads);
   return (
     <Sheet onClose={onClose}>
       <h2>Your account</h2>
-      <form onSubmit={(e) => { e.preventDefault(); onSave({ name: name.trim() || user.name, phone: cleanPhone(phone) || user.phone, counts, reads, leads }); }}>
+      <form onSubmit={(e) => { e.preventDefault(); onSave({ name: name.trim() || user.name, phone: cleanPhone(phone) || user.phone, counts }); }}>
         <label>Your name<input required value={name} onChange={(e) => setName(e.target.value)} /></label>
         <label>Phone number<input required type="tel" autoComplete="tel" value={phone} onChange={(e) => setPhone(e.target.value)} /></label>
         <label className="check"><input type="checkbox" checked={counts} onChange={(e) => setCounts(e.target.checked)} />Count me toward the ten</label>
-        <label className="check"><input type="checkbox" checked={reads} onChange={(e) => setReads(e.target.checked)} />I can read Torah</label>
-        <label className="check"><input type="checkbox" checked={leads} onChange={(e) => setLeads(e.target.checked)} />I can lead davening</label>
         <button className="primary" type="submit">Save</button>
       </form>
       {user.admin && !user.phoneLogin && (linking
@@ -308,8 +353,16 @@ export default function App() {
   const [pending, setPending] = useState(null);
   const [toast, setToast] = useState("");
   const [managing, setManaging] = useState(null);
+  const [needEmail, setNeedEmail] = useState(false);
+  const showNames = tv?.settings?.showNames !== false;
 
   useEffect(() => watchAccount(setUser), []);
+  // Arriving from the emailed link.
+  useEffect(() => {
+    if (!cameFromEmailLink()) return;
+    if (rememberedEmail()) finishEmailLink(rememberedEmail()).catch((e) => setToast(friendlyError(e)));
+    else setNeedEmail(true);
+  }, []);
   useEffect(() => subscribeAllSignups(setSignups), []);
   const needsZmanim = !!tv?.minyanim?.some((m) => m.time?.type === "zman");
   useEffect(() => { if (needsZmanim) startZmanimEngine(); }, [needsZmanim]);
@@ -326,7 +379,8 @@ export default function App() {
   const leadWord = openNow.find((o) => o.date === lead)?.day || goal.word;
   const todayRows = all.filter((o) => o.date === today && o.date !== goal.date && mineOf(o));
 
-  const entry = (who, more = {}) => ({ name: shortName(who.name), counts: who.counts !== false, at: Date.now(), ...(who.reads ? { reads: true } : {}), ...(who.leads ? { leads: true } : {}), ...more });
+  const entry = (who, more = {}) => ({ name: shortName(who.name), counts: who.counts !== false, at: Date.now(), ...more });
+  const setRole = (o, key, value) => patchSignup(o.date, o.id, user.uid, { [key]: value }).catch(fail);
   const record = useMemo(() => (user ? myRecord(signups, user.uid, today) : null), [signups, user, today]);
   const here = all.find((o) => o.date === today && canCheckIn(o, now));
   const hereMine = here ? mineOf(here)?.here : false;
@@ -406,8 +460,9 @@ export default function App() {
                 return (
                   <div key={o.id} className="card-wrap">
                     {o.options
-                      ? <Poll o={o} now={now} mine={mine} onVote={(t, picked) => vote(o, t, picked)} />
-                      : <Choice o={o} now={now} mine={mine} onToggle={() => (mine ? out(o) : join(o))} />}
+                      ? <Poll o={o} now={now} showNames={showNames} mine={mine} onVote={(t, picked) => vote(o, t, picked)} />
+                      : <Choice o={o} now={now} showNames={showNames} mine={mine} onToggle={() => (mine ? out(o) : join(o))} />}
+                    <Roles o={o} mine={mine} onSet={(k, v) => setRole(o, k, v)} />
                     {user?.admin && <button className="manage" onClick={() => setManaging(`${o.id}|${o.date}`)}>Manage</button>}
                   </div>
                 );
@@ -420,6 +475,7 @@ export default function App() {
 
       <datalist id="site-rooms"><option value="Beit Midrash" /><option value="Prayer Room" /><option value="Law School 2477" /></datalist>
       <div id="robot-check" />
+      {needEmail && <ConfirmEmail onDone={() => setNeedEmail(false)} />}
       {sheet === "signin" && <SignIn onClose={() => { setSheet(null); setPending(null); }} />}
       {user && (!user.phone || !user.name) && <NeedInfo user={user} onSave={(info) => patch(Object.fromEntries(Object.entries(info).filter(([, v]) => v)))} />}
       {sheet === "open" && <OpenPollSheet tv={tv} today={today} onClose={() => setSheet(null)} />}

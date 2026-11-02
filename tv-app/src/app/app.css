@@ -91,6 +91,13 @@ a.primary { display: flex; align-items: center; justify-content: center; text-de
 .here span { font-weight: 600; }
 .here b { font-size: 22px; font-weight: 700; white-space: nowrap; }
 .here.is-in { background: rgba(246, 242, 233, .1); color: var(--ink); }
+.roles { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.roles button { flex: 1; min-height: 46px; padding: 0 14px; border-radius: 14px; text-align: center; font-size: 16px; font-weight: 600; background: rgba(246, 242, 233, .1); white-space: nowrap; transition: background .25s, color .25s; }
+.roles .on { background: var(--gold); color: var(--night); }
+.opt .who { display: block; margin-top: 6px; font-size: 15px; }
+.suffix { display: flex; align-items: center; min-height: 54px; padding-right: 14px; border-radius: 16px; background: #E9E4D8; }
+.suffix input:not([type="checkbox"]) { flex: 1; min-width: 0; background: none; }
+.suffix em { font-style: normal; font-weight: 500; font-size: 16px; color: #4A4A58; }
 .rest { font-size: 22px; color: var(--soft); }
 
 .today { margin-bottom: 18px; padding: 16px 18px; border-radius: 22px; background: rgba(246, 242, 233, .09); }
@@ -106,7 +113,7 @@ a.primary { display: flex; align-items: center; justify-content: center; text-de
 .sheet-sub { margin: 6px 0 18px; color: #4A4A58; }
 .sheet-bg:has(.sheet:not(:has(.sheet-x))) { z-index: 15; }
 .sheet-x { position: absolute; right: 14px; top: 16px; width: 44px; height: 44px; display: grid; place-items: center; }
-.sheet form { display: grid; gap: 12px; }
+.sheet form { display: grid; gap: 12px; margin-top: 4px; }
 .sheet label { display: grid; gap: 4px; font-weight: 600; font-size: 15px; }
 .sheet input:not([type="checkbox"]) { width: 100%; min-height: 54px; padding: 0 16px; border: 0; border-radius: 16px; background: #E9E4D8; color: var(--night); font-size: 18px; }
 .sheet .check { display: flex; align-items: center; gap: 10px; min-height: 44px; font-size: 17px; font-weight: 500; }

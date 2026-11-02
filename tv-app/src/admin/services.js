@@ -1,8 +1,8 @@
 // Sign-in, managers and photo uploads for the dashboard.
 import { initializeApp, deleteApp } from "firebase/app";
 import {
-  getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut,
-  createUserWithEmailAndPassword, sendPasswordResetEmail, setPersistence, browserLocalPersistence,
+  getAuth, onAuthStateChanged, signOut,
+  createUserWithEmailAndPassword, setPersistence, browserLocalPersistence,
 } from "firebase/auth";
 import { get, set, remove, onValue } from "firebase/database";
 import { getStorage, ref as sRef, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
@@ -27,14 +27,14 @@ export function watchUser(cb) {
   return () => { unsub(); unsubRole?.(); };
 }
 
-export const signIn = (email, password) => signInWithEmailAndPassword(auth, email.trim(), password);
 export const signOutUser = () => signOut(auth);
-export const resetPassword = (email) => sendPasswordResetEmail(auth, email.trim());
+// Accounts sign in by emailed link or text, so this password is never seen or used.
+const throwaway = () => crypto.randomUUID() + "Aa1!";
 
 // First-time setup: the very first account becomes the owner. The database
 // rules only allow this while no managers exist yet.
-export async function claimOwner(email, password, name) {
-  const cred = await createUserWithEmailAndPassword(auth, email.trim(), password);
+export async function claimOwner(email, name) {
+  const cred = await createUserWithEmailAndPassword(auth, email.trim(), throwaway());
   try {
     await set(adminsRef(cred.user.uid), { role: "owner", email: cred.user.email, name: name || "", addedAt: Date.now() });
   } catch (e) {
@@ -44,10 +44,10 @@ export async function claimOwner(email, password, name) {
 }
 
 // Create a manager without signing the owner out (uses a throwaway app instance).
-export async function addManager(email, password, name, role = "manager", access = null) {
+export async function addManager(email, name, role = "manager", access = null) {
   const temp = initializeApp(firebaseConfig, "add-manager-" + Date.now());
   try {
-    const cred = await createUserWithEmailAndPassword(getAuth(temp), email.trim(), password);
+    const cred = await createUserWithEmailAndPassword(getAuth(temp), email.trim(), throwaway());
     await set(adminsRef(cred.user.uid), { role, email: cred.user.email, name: name || "", addedAt: Date.now(), ...(access && role !== "owner" ? { access } : {}) });
     await signOut(getAuth(temp));
   } finally {
