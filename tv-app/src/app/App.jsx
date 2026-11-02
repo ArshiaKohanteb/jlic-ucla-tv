@@ -62,7 +62,7 @@ function Choice({ o, mine, onToggle }) {
         <span className="status">{status}</span>
       </span>
       <span className="who" dir="auto">{mine ? (o.people.length > 1 ? `You and ${o.people.length - 1 + o.extra} others` : "You're the first") : names(o)}</span>
-      {o.message && <span className="message" dir="auto">{o.message}</span>}
+      {o.on && o.message && <span className="message" dir="auto">{o.message}</span>}
     </button>
   );
 }
@@ -88,7 +88,7 @@ function Poll({ o, mine, onVote }) {
           );
         })}
       </div>
-      {o.message && <p className="message" dir="auto">{o.message}</p>}
+      {o.on && o.message && <p className="message" dir="auto">{o.message}</p>}
     </section>
   );
 }
@@ -98,7 +98,7 @@ function TodayRow({ o, mine, onLate, onOut }) {
   return (
     <section className="today">
       <p>You're in for <b>{o.name}</b> today{o.epoch != null ? ` at ${clock(o.epoch).time} ${clock(o.epoch).ampm}` : ""}</p>
-      {o.message && <p className="today-note" dir="auto">{o.message}</p>}
+      {o.on && o.message && <p className="today-note" dir="auto">{o.message}</p>}
       <div>
         <button className={mine.late ? "lit" : ""} onClick={onLate}>{mine.late ? "Running late" : "I'll be late"}</button>
         <button onClick={onOut}>Can't make it</button>
