@@ -3,13 +3,13 @@ import { getDatabase, ref } from "firebase/database";
 
 // Paste the web app config from the JLIC UCLA Firebase project (see SETUP.md).
 export const firebaseConfig = {
-  apiKey: "PASTE_API_KEY",
-  authDomain: "PASTE_PROJECT_ID.firebaseapp.com",
-  databaseURL: "https://PASTE_PROJECT_ID-default-rtdb.firebaseio.com",
-  projectId: "PASTE_PROJECT_ID",
-  storageBucket: "PASTE_PROJECT_ID.firebasestorage.app",
-  messagingSenderId: "PASTE_SENDER_ID",
-  appId: "PASTE_APP_ID",
+  apiKey: "AIzaSyDC4Rqtm7-sV6QrBoDfUnWwJfUjijpRa4I",
+  authDomain: "jlic-ucla-tv.firebaseapp.com",
+  databaseURL: "https://jlic-ucla-tv-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "jlic-ucla-tv",
+  storageBucket: "jlic-ucla-tv.firebasestorage.app",
+  messagingSenderId: "492455461177",
+  appId: "1:492455461177:web:3395a5be6523cd9281a8e8"
 };
 
 export const app = initializeApp(firebaseConfig);
