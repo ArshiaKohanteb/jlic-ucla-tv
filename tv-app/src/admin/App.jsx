@@ -66,7 +66,7 @@ function Login() {
       if (mode === "setup") await claimOwner(value, name);
       else if (mode === "phone" && sent) await sent.confirm(code.trim());
       else if (mode === "phone") setSent(await sendCode(cleanPhone(value)));
-      else { await sendEmailLink(value, "admin/"); setMsg(`Check ${value.trim()} and tap the link.`); }
+      else { await sendEmailLink(value, "admin/"); setMsg(`Sent to ${value.trim()}. It can take a minute, so check spam too.`); }
     } catch (err) {
       setMsg(friendlyError(err));
     }

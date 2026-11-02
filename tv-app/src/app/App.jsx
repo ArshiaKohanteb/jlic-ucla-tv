@@ -177,7 +177,7 @@ const bruinEmail = (v) => {
   return /^[a-z][a-z0-9._-]{1,30}$/.test(id) ? `${id}@${UCLA_DOMAIN}` : "";
 };
 
-function EmailLink({ ucla, onOther, onError }) {
+function EmailLink({ ucla, onOther, onPhone, onError }) {
   const [value, setValue] = useState("");
   const [sent, setSent] = useState("");
   const [msg, setMsg] = useState("");
@@ -188,7 +188,17 @@ function EmailLink({ ucla, onOther, onError }) {
     setMsg("");
     sendEmailLink(email).then(() => setSent(email), onError);
   };
-  if (sent) return <p className="sheet-sub">Check {sent} and tap the link. That's it.</p>;
+  if (sent) {
+    return (
+      <>
+        <p className="sheet-sub">We sent a link to <b>{sent}</b>. Tap it to sign in. It can take a minute, so check spam too.</p>
+        <button className="plain" onClick={() => sendEmailLink(sent).then(() => setMsg("Sent again."), onError)}>Send again</button>
+        <button className="plain" onClick={() => setSent("")}>Change the address</button>
+        {onPhone && <button className="plain" onClick={onPhone}>Use my phone number instead</button>}
+        {msg && <p className="sheet-msg" role="status">{msg}</p>}
+      </>
+    );
+  }
   return (
     <form onSubmit={go}>
       {ucla
@@ -216,8 +226,8 @@ function SignIn({ onClose }) {
         </>
       )}
       {mode === "phone" && <PhoneCode send={sendCode} onError={onError} />}
-      {mode === "ucla" && <EmailLink ucla onOther={() => setMode("email")} onError={onError} />}
-      {mode === "email" && <EmailLink onError={onError} />}
+      {mode === "ucla" && <EmailLink ucla onOther={() => setMode("email")} onPhone={() => setMode("phone")} onError={onError} />}
+      {mode === "email" && <EmailLink onPhone={() => setMode("phone")} onError={onError} />}
       {msg && <p className="sheet-msg" role="alert">{msg}</p>}
     </Sheet>
   );
