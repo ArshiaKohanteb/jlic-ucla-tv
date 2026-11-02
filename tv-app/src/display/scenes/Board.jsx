@@ -5,7 +5,7 @@ import { sunColor, moonPhase } from "../sky.js";
 import { whenWords } from "../../shared/minyan.js";
 
 const SITE = "uclaminyan.com";
-const ARC = 190;
+const ARC = 84;
 const BOARD = [
   ["sunrise", "Netz"], ["shemaGRA", "Latest Shema"], ["tefila", "Latest Shacharit"], ["hatzot", "Midday"],
   ["minchaGedola", "Earliest Mincha"], ["sunset", "Sunset"], ["tzet", "Tzeit"],
@@ -71,7 +71,6 @@ function Horizon({ z, hidden, now, tz, today }) {
     const m = (now - start) / (nextRise - start);
     if (m > 0 && m < 1) moon = { x: m * 100, y: Math.sin(Math.PI * m) * ARC };
   }
-  const pct = up && now >= sr && now <= ss ? Math.round(f * 100) : null;
   return (
     <section className="horizon">
       {up && <i className="sun-glow" style={{ left: `${f * 100}%`, bottom: `${200 + Math.max(0, lift) * ARC}px`, opacity: 0.35 + (1 - Math.max(0, lift)) * 0.65 }} />}
@@ -81,7 +80,6 @@ function Horizon({ z, hidden, now, tz, today }) {
           {up && f > 0 && <path className="dial-past" d={arcPath(f)} vectorEffect="non-scaling-stroke" />}
         </svg>
         {up && <i className="sun" style={{ left: `${f * 100}%`, bottom: `${lift * ARC}px`, background: sunColor(lift * 2.4) }} />}
-        {pct != null && <span className="dial-pct" style={{ left: `${Math.min(92, Math.max(8, f * 100))}%`, bottom: `${lift * ARC + 48}px` }}>{pct}% of the day</span>}
         {moon && <div className="moon-at" style={{ left: `${moon.x}%`, bottom: `${moon.y}px` }}><Moon phase={moonPhase(now)} /></div>}
       </div>
       <div className="horizon-line" />
