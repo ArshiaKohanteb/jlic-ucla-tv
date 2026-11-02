@@ -12,7 +12,7 @@ export function Logos() {
   return (
     <div className="logos">
       <div className="jlic" role="img" aria-label="JLIC UCLA"><span>UCLA</span></div>
-      <img className="hillel" src={`${import.meta.env.BASE_URL}hillel-bw.png`} alt="Hillel at UCLA" />
+      <img className="hillel" src={`${import.meta.env.BASE_URL}hillel.png`} alt="Hillel at UCLA" />
     </div>
   );
 }

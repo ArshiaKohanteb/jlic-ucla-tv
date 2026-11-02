@@ -204,7 +204,7 @@ export default function App() {
     <div className="app">
       <header className="top">
         <img src={`${import.meta.env.BASE_URL}logo.png`} alt="JLIC" />
-        <img className="hillel" src={`${import.meta.env.BASE_URL}hillel-bw.png`} alt="Hillel at UCLA" />
+        <img className="hillel" src={`${import.meta.env.BASE_URL}hillel.png`} alt="Hillel at UCLA" />
         {user && <button className="me" aria-label="Your account" onClick={() => setSheet("profile")}>{(user.name || "?")[0].toUpperCase()}</button>}
       </header>
 
