@@ -1,6 +1,6 @@
 // Accounts for the sign-up site. Firebase keeps people signed in on their device.
 import {
-  getAuth, onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut,
+  getAuth, onAuthStateChanged, signOut,
   signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile,
   sendPasswordResetEmail, setPersistence, browserLocalPersistence,
   RecaptchaVerifier, signInWithPhoneNumber, linkWithPhoneNumber,
@@ -38,7 +38,6 @@ function demoIn() {
   location.reload();
 }
 
-export const signInGoogle = () => (isDemo() ? demoIn() : signInWithPopup(auth, new GoogleAuthProvider()));
 export const signInEmail = (email, password) => (isDemo() ? demoIn() : signInWithEmailAndPassword(auth, email.trim(), password));
 export async function createEmail(name, email, password, phone) {
   if (isDemo()) return demoIn();
@@ -88,12 +87,10 @@ export function shortName(name) {
 
 export function friendlyError(e) {
   const c = e?.code || "";
-  if (c === "auth/popup-closed-by-user" || c === "auth/cancelled-popup-request") return "";
   if (c === "auth/invalid-credential" || c === "auth/wrong-password" || c === "auth/user-not-found") return "That email or password didn't match.";
   if (c === "auth/email-already-in-use") return "That email already has an account. Sign in instead.";
   if (c === "auth/weak-password") return "Use at least 6 characters.";
   if (c === "auth/invalid-email") return "Check that email address.";
-  if (c === "auth/popup-blocked") return "Your browser blocked the Google window. Use email below.";
   if (c === "auth/invalid-verification-code") return "That code didn't match.";
   if (c === "auth/invalid-phone-number") return "Check that phone number.";
   if (c === "auth/too-many-requests") return "Too many tries. Wait a little and try again.";

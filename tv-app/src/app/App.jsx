@@ -8,7 +8,7 @@ import { minyanCalendar, TEN } from "../shared/minyan.js";
 import { subscribeSignups, saveSignup, patchSignup, removeSignup } from "../shared/signups.js";
 import { ClockInput } from "../admin/ui.jsx";
 import * as P from "../shared/polls.js";
-import { watchAccount, signInGoogle, signInEmail, createEmail, sendCode, linkPhone, resetPassword, saveProfile, leave, shortName, cleanPhone, friendlyError } from "./account.js";
+import { watchAccount, signInEmail, createEmail, sendCode, linkPhone, resetPassword, saveProfile, leave, shortName, cleanPhone, friendlyError } from "./account.js";
 
 const clock = (epoch) => {
   if (epoch == null) return "Time to come";
@@ -149,6 +149,7 @@ function SignIn({ onClose }) {
   const submit = (e) => {
     e.preventDefault();
     setMsg("");
+    if (mode === "new" && !/[@.]ucla\.edu$/i.test(f.email.trim())) { setMsg("Use your UCLA email, or sign in with your phone number."); return; }
     if (mode === "new" && !cleanPhone(f.phone)) { setMsg("Enter your phone number."); return; }
     run(() => (mode === "new" ? createEmail(f.name, f.email, f.password, cleanPhone(f.phone)) : signInEmail(f.email, f.password)));
   };
@@ -158,15 +159,14 @@ function SignIn({ onClose }) {
       <p className="sheet-sub">You'll only do this once.</p>
       {mode === "start" ? (
         <>
-          <button className="primary" onClick={() => run(signInGoogle)}>Continue with Google</button>
-          <button className="primary light" onClick={() => setMode("phone")}>Use my phone number</button>
-          <button className="plain" onClick={() => setMode("email")}>Use email instead</button>
+          <button className="primary" onClick={() => setMode("phone")}>Use my phone number</button>
+          <button className="primary light" onClick={() => setMode("new")}>Sign in with UCLA email</button>
         </>
       ) : mode === "phone" ? <PhoneCode send={sendCode} onError={(e) => setMsg(friendlyError(e))} /> : (
         <form onSubmit={submit}>
           {mode === "new" && <label>Your name<input required autoComplete="name" value={f.name} onChange={set("name")} /></label>}
           {mode === "new" && <label>Phone number<input required type="tel" autoComplete="tel" value={f.phone} onChange={set("phone")} /></label>}
-          <label>Email<input required type="email" autoComplete="email" value={f.email} onChange={set("email")} /></label>
+          <label>UCLA email<input required type="email" autoComplete="email" placeholder="you@g.ucla.edu" value={f.email} onChange={set("email")} /></label>
           <label>Password<input required type="password" minLength={6} autoComplete={mode === "new" ? "new-password" : "current-password"} value={f.password} onChange={set("password")} /></label>
           <button className="primary" type="submit">{mode === "new" ? "Create account" : "Sign in"}</button>
           <button type="button" className="plain" onClick={() => { setMsg(""); setMode(mode === "new" ? "email" : "new"); }}>{mode === "new" ? "I have an account" : "New here? Create an account"}</button>
