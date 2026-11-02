@@ -2,9 +2,11 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useTv, useZmanim, useNow, useStage, useImageSizes } from "./hooks.js";
 import { buildContent, slideSeconds } from "./rotation.js";
 import { buildSchedule, minutesUntil, localInfo, setHour24, TIMEZONE } from "../shared/schedule.js";
-import { THEMES, resolveTheme } from "../shared/themes.js";
+import { THEMES } from "../shared/themes.js";
 import { useHebrewFont } from "../shared/fonts.js";
-import ScheduleScene from "./scenes/ScheduleScene.jsx";
+import ScheduleScene, { ShabbatBoard } from "./scenes/ScheduleScene.jsx";
+import { Rail } from "./scenes/board.jsx";
+import { upcomingMinyanim } from "../shared/minyan.js";
 import { FlyerScene, AnnouncementScene } from "./scenes/ContentScenes.jsx";
 import CommunityScene, { pickCollage } from "./scenes/CommunityScene.jsx";
 import DonateScene from "./scenes/DonateScene.jsx";
@@ -12,7 +14,6 @@ import LogoScene from "./scenes/LogoScene.jsx";
 
 const params = new URLSearchParams(location.search);
 const HOLD = params.get("hold"); // schedule | flyer | announcement (dashboard preview)
-const FORCE_THEME = params.get("theme");
 // /flipped sets window.__TV_FLIP__ for a TV mounted upside down.
 const FLIP = !!window.__TV_FLIP__ || params.has("flip");
 // Phones and tablets (and low-memory devices) get the light version: the full
@@ -32,10 +33,20 @@ export default function App() {
   const today = localInfo(now, tz).dateKey;
   const urls = useMemo(() => (tv?.flyers || []).map((f) => f.url).filter(Boolean), [tv]);
   const sizes = useImageSizes(urls);
-  const content = useMemo(() => (tv ? buildContent(tv, today, sizes) : []), [tv, today, sizes, urls.map((u) => sizes.get(u)?.w).join()]);
+  const baseContent = useMemo(() => (tv ? buildContent(tv, today, sizes) : []), [tv, today, sizes, urls.map((u) => sizes.get(u)?.w).join()]);
   setHour24(tv?.settings?.clock24);
   useHebrewFont(tv?.settings?.hebrewFont);
   const sched = useMemo(() => (tv ? buildSchedule(tv, z, now, tz) : null), [tv, z, now, tz]);
+  const minyanim = useMemo(() => (tv ? upcomingMinyanim(tv, z, now, tz) : []), [tv, z, now, tz]);
+  // Friday afternoon through Shabbat the Rabbi's Shabbat list takes over the board.
+  const weekday = localInfo(now, tz);
+  const shabbatView = !!sched && (sched.inPeriod || weekday.weekday === 6 || (weekday.weekday === 5 && weekday.hour >= 12) || (!minyanim.length && sched.groups.length > 0));
+
+  // From Thursday the coming Shabbat gets its own slide between flyers.
+  const content = useMemo(() => {
+    const coming = !shabbatView && sched?.groups.some((g) => g.key === "period");
+    return coming ? [{ kind: "shabbat", key: "shabbat" }, ...baseContent] : baseContent;
+  }, [baseContent, shabbatView, sched]);
 
   // ── Rotation ──
   const [slides, setSlides] = useState({ cur: SCHEDULE, n: 0, tick: 0 });
@@ -55,7 +66,7 @@ export default function App() {
       const s = tv.settings;
       const holdForMinyan = s.holdBeforeMinyan > 0 && sched?.next && minutesUntil(sched.next.epoch) <= s.holdBeforeMinyan;
       let pool = content;
-      if (HOLD === "flyer" || HOLD === "announcement" || HOLD === "community" || HOLD === "donate" || HOLD === "logo") pool = content.filter((c) => c.kind === HOLD);
+      if (HOLD === "flyer" || HOLD === "announcement" || HOLD === "community" || HOLD === "donate" || HOLD === "logo" || HOLD === "shabbat") pool = content.filter((c) => c.kind === HOLD);
       const shabbatPause = s.pauseOnShabbat && sched?.inPeriod;
       const contentAllowed = HOLD !== "schedule" && pool.length > 0 && (HOLD || (!s.contentPaused && !holdForMinyan && !shabbatPause));
 
@@ -113,14 +124,14 @@ export default function App() {
 
   if (!tv) return <Splash />;
 
-  const sky = skyColor(z?.days?.[today], now);
-  const themeId = FORCE_THEME && THEMES[FORCE_THEME] ? FORCE_THEME : resolveTheme(tv.settings, sched || {});
+  const themeId = "royal";
   const theme = THEMES[themeId];
   const flip = FLIP && !params.has("preview");
   const dim = nightDim(tv.settings, now, tz);
 
   const render = (slide) => {
-    const props = { slide, tv, z, sched, now, tz };
+    const props = { slide, tv, z, sched, now, tz, minyanim, shabbatView };
+    if (slide.kind === "shabbat") return <div className="scene scene-board"><ShabbatBoard {...props} /></div>;
     if (slide.kind === "flyer") return <FlyerScene {...props} />;
     if (slide.kind === "announcement") return <AnnouncementScene {...props} />;
     if (slide.kind === "community") return <CommunityScene {...props} />;
@@ -130,7 +141,7 @@ export default function App() {
   };
 
   return (
-    <div className={`viewport theme-${themeId} ${theme.dark ? "is-dark" : "is-light"} fx-${tv.settings.effects === "lite" || HANDHELD ? "lite" : "full"} tr-${tv.settings.transition || "fade"} ${stage.w / stage.h < 1.6 ? "is-narrow" : ""} ${flip ? "is-flipped" : ""}`} style={{ ...theme.vars, "--sky": sky }}>
+    <div className={`viewport theme-${themeId} ${theme.dark ? "is-dark" : "is-light"} fx-${tv.settings.effects === "lite" || HANDHELD ? "lite" : "full"} tr-${tv.settings.transition || "fade"} ${stage.w / stage.h < 1.6 ? "is-narrow" : ""} ${flip ? "is-flipped" : ""}`} style={{ ...theme.vars }}>
       <div
         className="stage"
         style={flip
@@ -140,34 +151,22 @@ export default function App() {
           : { width: stage.w, height: stage.h, left: stage.x, top: stage.y, transform: `scale(${stage.scale})` }}
       >
         <div className="ambient" aria-hidden="true">
-          <div className="amb-photo" />
           <div className="amb-tint" />
-          <div className="amb-sky" />
           {!HANDHELD && <><div className="orb orb-a" /><div className="orb orb-b" /><div className="orb orb-c" /></>}
-          <div className="amb-vignette" />
-          {!HANDHELD && <div className="amb-grain" />}
         </div>
-        {prev && (
-          <div className="layer layer-out" key={"out" + prev.n}>{render(prev.slide)}</div>
-        )}
-        <div className="layer layer-in" key={"in" + slides.n}>{render(slides.cur)}</div>
+        <main className="main">
+          {prev && <div className={`layer layer-out ${fit(prev.slide)}`} key={"out" + prev.n}>{render(prev.slide)}</div>}
+          <div className={`layer layer-in ${fit(slides.cur)}`} key={"in" + slides.n}>{render(slides.cur)}</div>
+        </main>
+        <Rail tv={tv} z={z} sched={sched} tz={tz} next={minyanim[0]} showNext={slides.cur.kind !== "schedule" && slides.cur.kind !== "shabbat"} />
         {dim > 0 && <div className="night-dim" style={{ opacity: dim }} />}
       </div>
     </div>
   );
 }
 
-// A wash of colour that follows the real sky: rose at dawn, clear by day,
-// amber at sunset, deep blue after nightfall.
-function skyColor(d, now) {
-  if (!d?.sunrise || !d?.sunset) return "transparent";
-  const M = 60_000;
-  if (d.alot && now >= d.alot && now < d.sunrise + 40 * M) return "rgba(255, 150, 140, .26)";
-  if (now >= d.sunset - 70 * M && now < d.sunset + 15 * M) return "rgba(255, 168, 70, .30)";
-  if (now >= d.sunset + 15 * M && now < (d.tzet || d.sunset) + 30 * M) return "rgba(150, 90, 200, .20)";
-  if (now >= d.sunrise && now < d.sunset) return "rgba(120, 190, 255, .14)";
-  return "rgba(20, 40, 120, .25)";
-}
+// Slides built for the whole 1920 stage are scaled into the room beside the rail.
+const fit = (slide) => (slide.kind === "schedule" || slide.kind === "shabbat" ? "" : "layer-fit");
 
 // Fully load and decode images (kept in a small cache); gives up after 3s so a
 // slow image can never stall the rotation.

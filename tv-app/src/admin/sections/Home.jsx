@@ -6,6 +6,7 @@ import { buildSchedule, fmt, minutesUntil, localInfo } from "../../shared/schedu
 import { status } from "./Announcements.jsx";
 import LivePreview from "./LivePreview.jsx";
 import { can } from "../access.js";
+import LiveMinyan from "./LiveMinyan.jsx";
 
 const SCREENS = [
   { url: `${location.origin}${import.meta.env.BASE_URL}`, label: "Normal screen" },
@@ -43,6 +44,8 @@ export default function Home({ tv, z, user, go }) {
 
   return (
     <div className="stack">
+      {can(user, "schedule") && <LiveMinyan tv={tv} z={z} />}
+
       <section className="hero-card">
         <div>
           <div className="hero-hello">{hello(user.name)}</div>

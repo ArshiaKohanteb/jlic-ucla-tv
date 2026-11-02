@@ -61,6 +61,7 @@ export function buildContent(tv, today, sizes) {
 
 export function slideSeconds(slide, settings) {
   if (slide.kind === "schedule") return settings.scheduleSeconds || 30;
+  if (slide.kind === "shabbat") return settings.announcementSeconds || 12;
   if (slide.kind === "donate") return settings.announcementSeconds || 12;
   if (slide.kind === "logo") return settings.logoSeconds || 14;
   if (slide.kind === "community") return settings.communitySeconds || 16;

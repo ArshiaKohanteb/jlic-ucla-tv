@@ -246,18 +246,16 @@ function ClockText({ s, set }) {
 }
 
 export default function Screen({ tv }) {
-  const [tab, setTab] = useState("theme");
+  const [tab, setTab] = useState("layout");
   const s = tv.settings;
   const set = (patch) => patchTv("settings", patch);
   return (
     <div className="stack">
       <Tabs value={tab} onChange={setTab} options={[
-        { value: "theme", label: "Theme", icon: Palette },
         { value: "layout", label: "Layout", icon: LayoutTemplate },
         { value: "rotation", label: "Rotation", icon: Repeat },
         { value: "clock", label: "Clock & text", icon: Type },
       ]} />
-      {tab === "theme" && <Theme s={s} set={set} />}
       {tab === "layout" && <Layout s={s} set={set} />}
       {tab === "rotation" && <Rotation s={s} set={set} />}
       {tab === "clock" && <ClockText s={s} set={set} />}

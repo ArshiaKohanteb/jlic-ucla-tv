@@ -19,13 +19,17 @@ This site has its own Firebase project and shares nothing with any other TV.
 6. **Web app config:** **Project settings (gear) → General → Your apps → Web (`</>`)**, nickname `tv`, no Hosting. Copy the `firebaseConfig` block into [`tv-app/src/shared/firebase.js`](tv-app/src/shared/firebase.js), replacing the `PASTE_...` values. These values are safe to publish; the rules protect the data.
 7. **Owner account:** open `<site>/admin/`, choose **First-time setup**, enter your email and a password. Only the very first account can do this. Add everyone else under **People**.
 
+## Are we on?
+
+The top of the dashboard's Overview page holds the night-before controls: votes so far, still voting / we're on / not today, the time and the room. They only count for that date, so the board starts each day at "Not confirmed".
+
 ## Editing
 
 Times, announcements, flyers, photos, theme, location and donation details (**Appearance → Names & donation details**) are all in the dashboard.
 
 ## Brand rules built in
 
-From the JLIC Brand and Style Guide: purple `#391A92`, red `#F23207` and their listed tints only; Open Sans headlines, Montserrat body, Heebo or Open Sans Hebrew; the logo is never boxed, recoloured or used under 76px wide.
+From the JLIC Brand and Style Guide: purple `#391A92`, red `#F23207` and their listed tints only; Open Sans headlines, Montserrat body, Heebo or Open Sans Hebrew; the logo is never recoloured or used under 76px wide.
 
 ## Logo
 

@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import App from "./App.jsx";
 import { startZmanimEngine } from "../shared/bootstrap.js";
 import "./display.css";
+import "./board.css";
 
 // ?at=2026-10-03T10:00 previews the screen at another moment (tests & dashboard).
 const at = new URLSearchParams(location.search).get("at");

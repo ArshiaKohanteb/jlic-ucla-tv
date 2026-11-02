@@ -115,7 +115,7 @@ const pad2 = (n) => String(n).padStart(2, "0");
 
 // Hour, minute and AM/PM as separate controls. A native time box reports nothing
 // until AM/PM is filled in too, so "8:30" looked entered but never saved.
-function ClockInput({ value, onChange }) {
+export function ClockInput({ value, onChange }) {
   const [hh, mm] = value ? value.split(":").map(Number) : [];
   const [spare, setSpare] = useState({ minute: 0, ampm: "AM" });
   const hour = value ? hh % 12 || 12 : "";
