@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Plus, X, Check, Pencil, Trash2, Send, Repeat, MessageCircle } from "lucide-react";
+import { Plus, X, Check, Pencil, Trash2, Send, Repeat, MessageCircle, ImageDown } from "lucide-react";
 import qrcode from "qrcode-generator";
 import { onValue, ref } from "firebase/database";
 import { db } from "../../shared/firebase.js";
@@ -8,6 +8,9 @@ import { Card, Button, Field, Modal, Stepper, Toggle, ClockInput, todayKey } fro
 import { minyanCalendar, closeWords, needWords, TEN } from "../../shared/minyan.js";
 import { TIMEZONE, formatHHMM, addDays } from "../../shared/schedule.js";
 import * as P from "../../shared/polls.js";
+import { saveSignup, patchSignup } from "../../shared/signups.js";
+import { parsePoll, readScreens, nameKey } from "../../shared/waPoll.js";
+import { decodeImage, IMAGE_ACCEPT } from "../services.js";
 
 const ROOMS = ["Beit Midrash", "Prayer Room", "Law School 2477"];
 const NAMES = ["Shacharit", "Mincha", "Arvit"];
@@ -79,8 +82,107 @@ function Missing({ o, regulars }) {
   );
 }
 
+// Screenshots of a WhatsApp poll's "View votes" screen → names on this poll.
+function FromWhatsApp({ tv, o, regulars, onClose }) {
+  const [step, setStep] = useState("pick");
+  const [progress, setProgress] = useState(0);
+  const [error, setError] = useState("");
+  const [found, setFound] = useState(null);
+  const [extras, setExtras] = useState(true);
+  const choices = o.times.length > 1 ? o.times : [];
+
+  const read = async (files) => {
+    if (!files.length) return;
+    setStep("reading"); setError(""); setProgress(0);
+    try {
+      const bitmaps = [];
+      for (const f of files) bitmaps.push(await decodeImage(f));
+      const r = parsePoll(await readScreens(bitmaps, setProgress), o.times.length ? o.times : o.planned ? [o.planned] : []);
+      if (!r.groups.length) throw new Error("No poll votes found. Screenshot the poll's View votes screen.");
+      setFound({ ...r, groups: r.groups.map((g) => ({ ...g, use: g.no ? "" : g.time && choices.includes(g.time) ? g.time : "yes", text: g.names.join("\n") })) });
+      setStep("review");
+    } catch (e) {
+      setError(e.message || "Couldn't read that screenshot.");
+      setStep("pick");
+    }
+  };
+  const edit = (i, patch) => setFound((f) => ({ ...f, groups: f.groups.map((g, j) => (j === i ? { ...g, ...patch } : g)) }));
+
+  // Everyone's picks, merged by name, then matched to people already on the poll or who've come before.
+  const plan = useMemo(() => {
+    if (!found) return [];
+    const by = new Map();
+    for (const g of found.groups) {
+      if (!g.use) continue;
+      for (const raw of g.text.split("\n")) {
+        const name = raw.trim().slice(0, 40);
+        if (!name) continue;
+        const k = nameKey(name);
+        const p = by.get(k) || { name, times: new Set() };
+        if (g.use !== "yes") p.times.add(g.use);
+        by.set(k, p);
+      }
+    }
+    return [...by.entries()].map(([k, p]) => {
+      const here = o.people.find((x) => nameKey(x.name) === k);
+      const known = (regulars || []).find((r) => nameKey(r.name) === k && !r.key.startsWith("n_"));
+      return { ...p, here, key: here?.uid || known?.key || "wa_" + k.replace(/\s+/g, "-") };
+    });
+  }, [found]);
+
+  const add = async () => {
+    const at = Date.now();
+    await Promise.all(plan.map((p) => {
+      const times = choices.length && p.times.size ? Object.fromEntries([...p.times].map((t) => [t, true])) : null;
+      if (p.here) return times ? patchSignup(o.date, o.id, p.key, { times: { ...(p.here.times || {}), ...times } }) : null;
+      return saveSignup(o.date, o.id, p.key, { name: p.name, at, via: "whatsapp", ...(times ? { times } : {}) });
+    }));
+    if (extras && found.phones) await P.setExtra(tv, o, Math.min(10, o.extra + found.phones));
+    onClose();
+  };
+  const fresh = plan.filter((p) => !p.here).length;
+
+  return (
+    <Modal title={`${o.name} ${o.day.toLowerCase()}: votes from WhatsApp`} onClose={onClose}
+      footer={step === "review" && <Button variant="primary" icon={Check} onClick={add} disabled={!plan.length}>{fresh ? `Add ${fresh} ${fresh === 1 ? "person" : "people"}` : "Update votes"}</Button>}>
+      {step === "pick" && (
+        <div className="stack-sm">
+          <p className="hint">In the group, tap the poll, then View votes. Screenshot it. If the list is long, scroll and take another.</p>
+          <label className="btn btn-primary wa-pick"><ImageDown size={18} /><span>Choose screenshots</span>
+            <input type="file" accept={IMAGE_ACCEPT} multiple hidden onChange={(e) => read([...e.target.files])} />
+          </label>
+          {error && <p className="error">{error}</p>}
+        </div>
+      )}
+      {step === "reading" && <p className="hint">Reading the votes… {Math.round(progress * 100)}%</p>}
+      {step === "review" && (
+        <div className="stack-sm">
+          <p className="hint">Check the names. One per line, fix any typos.</p>
+          {found.groups.map((g, i) => (
+            <div key={i} className="wa-group">
+              <div className="wa-group-head">
+                <b dir="auto">{g.label}</b>
+                <select className="input" value={g.use} onChange={(e) => edit(i, { use: e.target.value })}>
+                  {choices.map((t) => <option key={t} value={t}>Coming at {hhmm(t)}</option>)}
+                  <option value="yes">{choices.length ? "Coming, any time" : "Coming"}</option>
+                  <option value="">Not coming, skip</option>
+                </select>
+              </div>
+              {g.use && <textarea className="input" rows={Math.max(2, g.text.split("\n").length)} value={g.text} onChange={(e) => edit(i, { text: e.target.value })} />}
+            </div>
+          ))}
+          {found.phones > 0 && <Toggle label={`Count ${found.phones} ${found.phones === 1 ? "voter" : "voters"} shown only by phone number`} hint="Added as extra people, since there's no name to show" checked={extras} onChange={setExtras} />}
+          {found.you && <p className="hint">Your own vote isn't included. Sign up for yourself on the site.</p>}
+          {plan.some((p) => p.here) && <p className="hint">Already on the list: {plan.filter((p) => p.here).map((p) => p.name).join(", ")}</p>}
+        </div>
+      )}
+    </Modal>
+  );
+}
+
 function Poll({ tv, o, regulars, now }) {
   const [edit, setEdit] = useState(false);
+  const [importing, setImporting] = useState(false);
   const [room, setRoom] = useState(o.place);
   const [perk, setPerk] = useState(o.perk);
   const notes = [needWords(o), closeWords(o, now), o.perk, o.leader ? `Chazan: ${o.leader}` : "", o.needsReader ? (o.reader ? `Torah reader: ${o.reader}` : "No Torah reader yet") : ""].filter(Boolean);
@@ -120,12 +222,14 @@ function Poll({ tv, o, regulars, now }) {
 
       <footer className="pl-actions">
         <a className="btn btn-primary" href={waLink(o.on ? onMessage(o) : askMessage(o))} target="_blank" rel="noreferrer" onClick={() => o.on && P.setMessage(tv, o, onMessage(o))}><Send size={16} /><span>{o.on ? "Tell the group" : "Ask the group"}</span></a>
+        {!o.off && <Button variant="secondary" icon={ImageDown} onClick={() => setImporting(true)}>From WhatsApp</Button>}
         <Button variant="secondary" icon={Pencil} onClick={() => setEdit(!edit)}>Edit</Button>
         {o.off
           ? <Button variant="secondary" onClick={() => P.reopenPoll(tv, o)}>Reopen</Button>
           : <Button variant="secondary" onClick={() => P.cancelPoll(tv, o)}>Not happening</Button>}
       </footer>
 
+      {importing && <FromWhatsApp tv={tv} o={o} regulars={regulars} onClose={() => setImporting(false)} />}
       {edit && (
         <div className="pl-edit">
           <Field label="Times"><TimesPicker value={o.times.length ? o.times : o.planned ? [o.planned] : []} onChange={(list) => P.setTimes(tv, o, list)} /></Field>

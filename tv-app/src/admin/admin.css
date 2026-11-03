@@ -487,6 +487,11 @@ form .access-pick { padding-left: 0; }
 .au-main b { display: block; font-weight: 800; }
 .au-main span { color: var(--muted); font-size: 14px; }
 .wa { display: grid; gap: 6px; }
+.wa-pick { cursor: pointer; justify-self: start; }
+.wa-group { display: grid; gap: 8px; padding: 12px 14px; border-radius: 14px; background: var(--bg); }
+.wa-group-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.wa-group-head select { width: auto; }
+.wa-group textarea { resize: vertical; font: inherit; }
 .wa-pair { grid-template-columns: 180px 1fr; align-items: center; gap: 18px; }
 .wa-qr { width: 180px; height: 180px; border-radius: 10px; }
 .wa-code { font: 800 18px/1 var(--mono, monospace); letter-spacing: .08em; color: var(--ink); }
