@@ -277,7 +277,7 @@ const ago = (ms) => {
 function WhatsApp() {
   const [s, setS] = useState(undefined);
   useEffect(() => (isDemo() ? setS(null) : onValue(ref(db, "waBot/status"), (x) => setS(x.val()), () => setS(null))), []);
-  if (s === undefined) return null;
+  if (!s) return null; // only once the bot has been set up
   const fresh = s?.at && Date.now() - s.at < 10 * 60_000;
   const state = !s ? "off" : s.state === "online" ? "online" : s.state === "pairing" && fresh ? "pairing" : s.state === "logged-out" ? "logged-out" : "off";
   return (
