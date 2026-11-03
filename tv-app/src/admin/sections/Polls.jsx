@@ -1,5 +1,9 @@
-import React, { useState } from "react";
-import { Plus, X, Check, Pencil, Trash2, Send, Repeat } from "lucide-react";
+import React, { useEffect, useMemo, useState } from "react";
+import { Plus, X, Check, Pencil, Trash2, Send, Repeat, MessageCircle } from "lucide-react";
+import qrcode from "qrcode-generator";
+import { onValue, ref } from "firebase/database";
+import { db } from "../../shared/firebase.js";
+import { isDemo } from "../../shared/store.js";
 import { Card, Button, Field, Modal, Stepper, Toggle, ClockInput, todayKey } from "../ui.jsx";
 import { minyanCalendar, closeWords, needWords, TEN } from "../../shared/minyan.js";
 import { TIMEZONE, formatHHMM, addDays } from "../../shared/schedule.js";
@@ -142,6 +146,62 @@ function Poll({ tv, o, regulars, now }) {
   );
 }
 
+function Qr({ value }) {
+  const { d, n } = useMemo(() => {
+    const q = qrcode(0, "L");
+    q.addData(value);
+    q.make();
+    const n = q.getModuleCount();
+    let d = "";
+    for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (q.isDark(r, c)) d += `M${c} ${r}h1v1h-1z`;
+    return { d, n };
+  }, [value]);
+  return (
+    <svg className="wa-qr" viewBox={`-2 -2 ${n + 4} ${n + 4}`} role="img" aria-label="WhatsApp link code" shapeRendering="crispEdges">
+      <rect x="-2" y="-2" width={n + 4} height={n + 4} fill="#fff" />
+      <path d={d} fill="#000" />
+    </svg>
+  );
+}
+
+const ago = (ms) => {
+  const m = Math.round((Date.now() - ms) / 60_000);
+  return m < 1 ? "just now" : m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m / 60)} hr ago` : `${Math.round(m / 1440)} days ago`;
+};
+
+// The bot that reads votes in the WhatsApp group (see bot/README.md).
+function WhatsApp() {
+  const [s, setS] = useState(undefined);
+  useEffect(() => (isDemo() ? setS(null) : onValue(ref(db, "waBot/status"), (x) => setS(x.val()), () => setS(null))), []);
+  if (s === undefined) return null;
+  const fresh = s?.at && Date.now() - s.at < 10 * 60_000;
+  const state = !s ? "off" : s.state === "online" ? "online" : s.state === "pairing" && fresh ? "pairing" : s.state === "logged-out" ? "logged-out" : "off";
+  return (
+    <Card title="WhatsApp" subtitle="Votes in the group's polls count here, live" icon={MessageCircle}>
+      {state === "online" && (
+        <div className="wa">
+          <p><b>Reading {s.groups?.length ? s.groups.join(", ") : "no group yet"}</b></p>
+          {!s.groups?.length && <p className="hint">Add the bot's number (+{s.phone}) to the minyan group.</p>}
+          {s.lastVote && <p className="hint">Last vote: {s.lastVote}{s.lastVoteAt ? `, ${ago(s.lastVoteAt)}` : ""}</p>}
+          <p className="hint">Post a WhatsApp poll that names the minyan and day, like "Shacharit tomorrow?", with the times or Yes and No as options.</p>
+        </div>
+      )}
+      {state === "pairing" && (
+        <div className="wa wa-pair">
+          {s.qr && <Qr value={s.qr} />}
+          <div>
+            <p><b>Link the bot's phone</b></p>
+            <p className="hint">On the bot's phone, open WhatsApp → Settings → Linked devices → Link a device, and scan this.</p>
+            {s.code && <p className="hint">Or choose "Link with phone number instead" and enter <b className="wa-code">{s.code}</b></p>}
+          </div>
+        </div>
+      )}
+      {state === "logged-out" && <p className="hint">The bot was unlinked. It will show a new code here in a moment.</p>}
+      {state === "off" && <p className="hint">{s ? `The bot isn't running (last seen ${ago(s.at)}).` : "The bot isn't set up yet."} Setup is in bot/README.md.</p>}
+    </Card>
+  );
+}
+
 function AutoRow({ tv, m }) {
   const [open, setOpen] = useState(false);
   const on = (m.days || []).length > 0;
@@ -176,6 +236,7 @@ export default function Polls({ tv, z, signups, regulars }) {
       <datalist id="minyan-rooms">{ROOMS.map((r) => <option key={r} value={r} />)}</datalist>
       <div className="pl-bar"><Button variant="primary" icon={Plus} onClick={() => setOpening(true)}>Open a poll</Button></div>
       {polls.length ? <div className="pl-list">{polls.map((o) => <Poll key={o.id + o.date} tv={tv} o={o} regulars={regulars} now={Date.now()} />)}</div> : <p className="empty-state">No polls open.</p>}
+      <WhatsApp />
       <Card title="Runs by itself" subtitle="These polls open every day for the next day, except Shabbat." icon={Repeat}>
         <ul className="au-list">{autos.map((m) => <AutoRow key={m.id} tv={tv} m={m} />)}</ul>
         <Button variant="secondary" icon={Plus} onClick={() => P.addAuto(tv, { name: "Mincha", times: ["13:10"] })}>Add a daily poll</Button>

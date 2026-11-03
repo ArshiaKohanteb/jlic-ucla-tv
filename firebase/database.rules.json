@@ -59,6 +59,11 @@
     "attendance": {
       ".read": "auth != null && root.child('tvAdmins').child(auth.uid).exists()",
       ".write": "auth != null && root.child('tvAdmins').child(auth.uid).exists()"
+    },
+    "waBot": {
+      "status": {
+        ".read": "auth != null && root.child('tvAdmins').child(auth.uid).exists()"
+      }
     }
   }
 }
