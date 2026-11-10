@@ -6,7 +6,7 @@ import {
 import { useZmanim, useNow } from "../display/hooks.js";
 import { skyGradient } from "../display/sky.js";
 import { startZmanimEngine } from "../shared/bootstrap.js";
-import { TIMEZONE, localInfo, zonedEpoch } from "../shared/schedule.js";
+import { TIMEZONE, localInfo, zonedEpoch, addDays } from "../shared/schedule.js";
 import { watchAccount, cameFromEmailLink, rememberedEmail, finishEmailLink, saveProfile, friendlyError } from "./account.js";
 import { Sheet, SignIn, ConfirmEmail, NeedInfo, Profile } from "./App.jsx";
 import { loadLib, rowsFor, MINHAGIM, ZMANIM, PARTS, DEFAULT_PREFS, hebrewDate, civilDate, weekFrom } from "./zmanim.js";
@@ -177,7 +177,7 @@ export default function Home({ onVote }) {
       </header>
 
       <section className="h-hero">
-        {parasha && <span className="h-chip"><BookOpen size={16} />Parshat {parasha}</span>}
+        {parasha && <span className="h-chip"><BookOpen size={16} /><span dir="rtl" lang="he">פרשת {parasha}</span></span>}
         <h1 dir="rtl" lang="he">{heb.he}</h1>
         <p className="h-sub">{civilDate(day)} · {heb.en}</p>
         {levana && <span className="h-chip"><MoonStar size={16} />Kiddush Levana · {shortDate(levana.start)} – {shortDate(levana.end)}</span>}
@@ -201,7 +201,7 @@ export default function Home({ onVote }) {
 
       {shabbat && (
         <section className="h-shabbat">
-          <header><Flame size={20} /><div><b>{shabbat.title}{parasha && !shabbat.isYomTov ? ` · ${parasha}` : ""}</b><span>{civilDate(shabbat.start, { weekday: "short", month: "short", day: "numeric" })}{shabbat.end !== shabbat.start ? ` – ${civilDate(shabbat.end, { weekday: "short", month: "short", day: "numeric" })}` : ""}</span></div></header>
+          <header><Flame size={20} /><div><b>{shabbat.title}{parasha && !shabbat.isYomTov && <> · <span dir="rtl" lang="he">{parasha}</span></>}</b><span>{civilDate(addDays(shabbat.start, -1), { weekday: "short", month: "short", day: "numeric" })} – {civilDate(shabbat.end, { weekday: "short", month: "short", day: "numeric" })}</span></div></header>
           <div>
             <p><small>Candle lighting</small><Clock at={z.candleLighting} h24={prefs.h24} /></p>
             <p><small>{shabbat.endLabel || "Havdalah"}</small><Clock at={z.havdalah} h24={prefs.h24} /></p>

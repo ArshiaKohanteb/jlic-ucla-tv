@@ -33,7 +33,7 @@
 .h-shabbat header { display: flex; align-items: center; gap: 12px; padding: 0 2px 14px; }
 .h-shabbat header svg { flex: none; color: var(--gold); }
 .h-shabbat header b { display: block; font-size: 18px; font-weight: 600; }
-.h-shabbat header span { font-size: 15px; color: var(--soft); }
+.h-shabbat header div > span { font-size: 15px; color: var(--soft); }
 .h-shabbat > div { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .h-shabbat p { display: grid; gap: 2px; padding: 14px 16px; border-radius: 18px; background: rgba(11, 13, 26, .28); }
 .h-shabbat p small { font-size: 14px; color: var(--soft); }
