@@ -328,6 +328,8 @@ export default function Home({ onVote }) {
         </div>
       </header>
 
+      <div className="h-layout">
+      <aside className="h-side">
       <section className="h-hero rise">
         <h1 dir="rtl" lang="he">{heb.he}</h1>
         <p className="h-sub">{civilDate(day)} · {heb.en}</p>
@@ -359,11 +361,9 @@ export default function Home({ onVote }) {
       )}
       <p className="h-meta">{minhag.label}{ucla && prefs.minhag === "sephardi" ? " · Hillel TV times" : ""}{loc.sub ? ` · ${loc.sub}` : ""}</p>
 
-      {!K ? <p className="h-loading">Working out the zmanim…</p> : (
-        <>
-          {day === today && <NowCard next={next} rows={todays} now={now} tz={tz} h24={prefs.h24} tomorrow={!upcoming} />}
+      {K && day === today && <NowCard next={next} rows={todays} now={now} tz={tz} h24={prefs.h24} tomorrow={!upcoming} />}
 
-          {shabbat && day === today && (
+      {K && shabbat && day === today && (
             <section className="h-shabbat rise">
               <header>
                 <Flame size={20} />
@@ -378,8 +378,12 @@ export default function Home({ onVote }) {
             </section>
           )}
 
-          {prefs.shaah && view?.hour > 0 && <p className="h-shaah">Shaah zmanit: <b>{Math.floor(view.hour / 60_000)} min {Math.round((view.hour % 60_000) / 1000)} sec</b></p>}
+      {K && prefs.shaah && view?.hour > 0 && <p className="h-shaah">Shaah zmanit: <b>{Math.floor(view.hour / 60_000)} min {Math.round((view.hour % 60_000) / 1000)} sec</b></p>}
+      </aside>
 
+      <div className="h-main">
+      {!K ? <p className="h-loading">Working out the zmanim…</p> : (
+        <>
           {PARTS.map((p) => {
             const list = rows.filter((r) => r.part === p.id);
             if (!list.length) return null;
@@ -395,6 +399,8 @@ export default function Home({ onVote }) {
           })}
         </>
       )}
+      </div>
+      </div>
 
       <footer className="h-foot">
         <a className="h-foot-vote" href="#vote" onClick={(e) => { e.preventDefault(); onVote(); }}>Coming to minyan? <b>Vote for a time</b></a>

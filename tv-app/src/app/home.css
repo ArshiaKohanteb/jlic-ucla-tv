@@ -158,3 +158,23 @@
 @keyframes rise { from { opacity: 0; transform: translateY(14px); } }
 @keyframes drop { from { opacity: 0; transform: translateY(-6px); } }
 @keyframes pulse { 50% { transform: scale(1.35); opacity: .5; } }
+
+/* ── Desktop: a side column with the day, what's next and Shabbat; the zmanim beside it ── */
+@media (min-width: 980px) {
+  .home { max-width: 1180px; padding: 0 40px 48px; }
+  .h-top { margin: 0 -40px; padding-left: 40px; padding-right: 40px; }
+  .h-layout { display: grid; grid-template-columns: 420px 1fr; gap: 40px; align-items: start; margin-top: 18px; }
+  .h-side { position: sticky; top: 82px; }
+  .h-hero { align-items: flex-start; text-align: left; padding: 8px 0 22px; }
+  .h-hero h1 { font-size: 60px; }
+  .h-chips { justify-content: flex-start; }
+  .h-meta { text-align: left; margin-left: 2px; }
+  .h-main { padding-top: 6px; }
+  .h-part h2 { font-size: 34px; }
+  .z-main { min-height: 76px; padding: 12px 10px 12px 16px; }
+  .z-text b { font-size: 18px; }
+  .z-clock { font-size: 24px; }
+  .z-more > div { padding-left: 73px; }
+  .h-foot { max-width: 640px; margin: 40px auto 0; }
+}
+@media (min-width: 980px) and (max-height: 940px) { .h-side { position: static; } }
