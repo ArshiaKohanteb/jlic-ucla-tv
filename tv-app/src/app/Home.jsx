@@ -49,6 +49,33 @@ const until = (ms) => {
   return m < 60 ? `${m} min` : `${Math.floor(m / 60)} hr ${m % 60} min`;
 };
 
+// A second-by-second tick, kept to the few things that show seconds.
+function useTick(ms = 1000) {
+  const [t, setT] = useState(Date.now());
+  useEffect(() => { const i = setInterval(() => setT(Date.now()), ms); return () => clearInterval(i); }, [ms]);
+  return t;
+}
+
+// The TV's clock: big hours and minutes, the seconds in gold beside them.
+function LiveClock({ tz, h24 }) {
+  const t = useTick();
+  const p = new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit", second: "2-digit", hourCycle: h24 ? "h23" : "h12", timeZone: tz }).formatToParts(new Date(t));
+  const get = (k) => p.find((x) => x.type === k)?.value || "";
+  return (
+    <p className="h-clock" role="timer" aria-label="Current time">
+      <span>{get("hour")}:{get("minute")}</span>
+      <span className="h-clock-side">{!h24 && <small>{get("dayPeriod")}</small>}<b>{get("second")}</b></span>
+    </p>
+  );
+}
+
+function Countdown({ to }) {
+  const t = useTick();
+  const s = Math.max(0, Math.round((to - t) / 1000));
+  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = String(s % 60).padStart(2, "0");
+  return <span className="now-count">{h ? `${h}:${String(m).padStart(2, "0")}` : m}:{sec}</span>;
+}
+
 // The sun's path across today, like the TV's: sunrise on the left, sunset on the right.
 function NowCard({ next, rows, now, tz, h24, tomorrow }) {
   const rise = rows.find((r) => r.id === "sunrise")?.at;
@@ -65,7 +92,7 @@ function NowCard({ next, rows, now, tz, h24, tomorrow }) {
   return (
     <section className="now rise" aria-label="Next zman">
       <div className="now-text">
-        <span className="now-eyebrow"><Icon size={16} />{tomorrow ? "First tomorrow" : "Next"} · in {until(next.at - now)}</span>
+        <span className="now-eyebrow"><Icon size={16} />{tomorrow ? "First tomorrow" : "Next"} · in <Countdown to={next.at} /></span>
         <div className="now-row"><b>{next.label}</b><Clock at={next.at} tz={tz} h24={h24} /></div>
       </div>
       <svg className="now-arc" viewBox={`0 0 ${W} ${H}`} aria-hidden="true">
@@ -80,6 +107,11 @@ function NowCard({ next, rows, now, tz, h24, tomorrow }) {
       <div className="now-ends"><span>Sunrise {plainTime(rise, tz, h24)}</span><span>Sunset {plainTime(set, tz, h24)}</span></div>
     </section>
   );
+}
+
+// Where "now" falls among today's zmanim.
+function NowLine({ now, tz, h24 }) {
+  return <li className="z-now" aria-label={`Now, ${plainTime(now, tz, h24)}`}><span>Now</span><i aria-hidden="true" /><b>{plainTime(now, tz, h24)}</b></li>;
 }
 
 function Row({ r, tz, h24, next, past, open, onToggle }) {
@@ -330,7 +362,8 @@ export default function Home({ onVote }) {
 
       <div className="h-layout">
       <aside className="h-side">
-      <section className="h-hero rise">
+      <section className={`h-hero rise ${day === today ? "is-today" : ""}`}>
+        {day === today && <LiveClock tz={tz} h24={prefs.h24} />}
         <h1 dir="rtl" lang="he">{heb.he}</h1>
         <p className="h-sub">{civilDate(day)} · {heb.en}</p>
         {(shabbat?.parasha || levana) && (
@@ -341,24 +374,19 @@ export default function Home({ onVote }) {
         )}
       </section>
 
+      <div className="h-days h-week rise" role="group" aria-label="Choose a day">
+        {weekFrom(today).map((d, i) => (
+          <button key={d} className={d === day ? "on" : ""} aria-pressed={d === day} onClick={() => setDate(d)}>
+            <small>{i === 0 ? "Today" : civilDate(d, { weekday: "short" })}</small><b>{Number(d.slice(8))}</b>
+          </button>
+        ))}
+      </div>
       <div className="h-controls rise">
-        <button className="h-pill" aria-expanded={picking} onClick={() => setPicking(!picking)}>
-          <CalendarDays size={18} /><span>{day === today ? "Today" : civilDate(day, { weekday: "short", month: "short", day: "numeric" })}</span>
-        </button>
         <button className="h-pill h-loc" onClick={() => setSheet("location")}>
           {ucla ? <GraduationCap size={18} /> : <MapPin size={18} />}<span>{loc.name}</span>
         </button>
         <button className="h-pill h-icon" aria-label="Customize" onClick={() => setSheet("customize")}><SlidersHorizontal size={19} /></button>
       </div>
-      {picking && (
-        <div className="h-days">
-          {weekFrom(today).map((d, i) => (
-            <button key={d} className={d === day ? "on" : ""} aria-pressed={d === day} onClick={() => { setDate(d); setPicking(false); }}>
-              <small>{i === 0 ? "Today" : civilDate(d, { weekday: "short" })}</small><b>{Number(d.slice(8))}</b>
-            </button>
-          ))}
-        </div>
-      )}
       <p className="h-meta">{minhag.label}{ucla && prefs.minhag === "sephardi" ? " · Hillel TV times" : ""}{loc.sub ? ` · ${loc.sub}` : ""}</p>
 
       {K && day === today && <NowCard next={next} rows={todays} now={now} tz={tz} h24={prefs.h24} tomorrow={!upcoming} />}
@@ -389,10 +417,16 @@ export default function Home({ onVote }) {
             if (!list.length) return null;
             return (
               <section key={p.id} className="h-part rise">
-                <h2>{p.label} <span lang="he">{p.he}</span></h2>
+                <h2>{p.label} <span lang="he">{p.he}</span><em className="h-range">{plainTime(list[0].at, tz, prefs.h24)} – {plainTime(list[list.length - 1].at, tz, prefs.h24)}</em></h2>
                 <ul className="z-list">
-                  {list.map((r) => <Row key={r.id} r={r} tz={tz} h24={prefs.h24} next={r.id === nextId} past={day === today && r.at < now}
-                    open={!!open[r.id]} onToggle={() => setOpen({ ...open, [r.id]: !open[r.id] })} />)}
+                  {list.map((r, i) => (
+                    <React.Fragment key={r.id}>
+                      {day === today && r.id === nextId && <NowLine now={now} tz={tz} h24={prefs.h24} />}
+                      <Row r={r} tz={tz} h24={prefs.h24} next={r.id === nextId} past={day === today && r.at < now}
+                        open={!!open[r.id]} onToggle={() => setOpen({ ...open, [r.id]: !open[r.id] })} />
+                      {day === today && !nextId && r === rows[rows.length - 1] && <NowLine now={now} tz={tz} h24={prefs.h24} />}
+                    </React.Fragment>
+                  ))}
                 </ul>
               </section>
             );
