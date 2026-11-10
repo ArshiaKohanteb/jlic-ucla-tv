@@ -86,7 +86,7 @@ export function royFor(loc) {
       const [KZ, core, roy] = await Promise.all([
         import(/* @vite-ignore */ ROY + "libraries/kosherZmanim/kosher-zmanim.js"),
         import(/* @vite-ignore */ ROY + "js/core/zmanimCore.js"),
-        import(/* @vite-ignore */ ROY + "js/ROYZmanim.js"),
+        import(/* @vite-ignore */ ROY + "js/core/ROYZmanim.js"),
       ]);
       const geo = new KZ.GeoLocation(loc.name, Number(loc.lat), Number(loc.long), Number(loc.elevation) || 0, loc.tz);
       const settings = core.zemanimSettings(core.settingSourceFrom(loc.tz === "Asia/Jerusalem" ? { candles: "40" } : {}));

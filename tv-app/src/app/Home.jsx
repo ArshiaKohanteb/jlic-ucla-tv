@@ -75,7 +75,7 @@ function NowCard({ next, rows, now, tz, h24, tomorrow }) {
         {marks.map((m) => <circle key={m.id} cx={x(m.f)} cy={y(m.f)} r={m.id === next.id ? 4 : 2.4} className={`now-mark ${m.id === next.id ? "is-next" : ""}`} />)}
         {day
           ? <g transform={`translate(${x(f)} ${y(f)})`}><circle r="15" className="now-glow" /><circle r="7.5" className="now-sun" /></g>
-          : <g className="now-stars">{[[40, 26], [92, 14], [150, 30], [210, 12], [268, 24], [300, 40]].map(([cx, cy]) => <circle key={cx} cx={cx} cy={cy} r="1.3" />)}</g>}
+          : <g className="now-stars">{[[22, 30], [58, 8], [112, 4], [196, 6], [254, 10], [300, 32]].map(([cx, cy]) => <circle key={cx} cx={cx} cy={cy} r="1.3" />)}</g>}
       </svg>
       <div className="now-ends"><span>Sunrise {plainTime(rise, tz, h24)}</span><span>Sunset {plainTime(set, tz, h24)}</span></div>
     </section>

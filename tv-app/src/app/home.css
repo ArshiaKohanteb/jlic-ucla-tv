@@ -53,7 +53,8 @@
 .now-mark.is-next { fill: var(--ink); stroke: var(--gold); stroke-width: 2; }
 .now-sun { fill: var(--gold); }
 .now-glow { fill: rgba(247, 209, 61, .22); animation: pulse 3.2s ease-in-out infinite; transform-origin: center; transform-box: fill-box; }
-.now-stars circle { fill: rgba(246, 242, 233, .7); }
+.now-stars circle { fill: rgba(246, 242, 233, .75); }
+.now:not(:has(.now-sun)) .now-mark { fill: rgba(246, 242, 233, .3); }
 .now-ends { display: flex; justify-content: space-between; margin-top: 2px; font-size: 13px; color: var(--soft); }
 
 /* Shabbat */

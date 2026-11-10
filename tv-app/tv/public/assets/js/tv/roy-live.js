@@ -73,7 +73,7 @@ export function loadRoy(loc) {
     const [KZ, core, roy] = await Promise.all([
       import(ROY + "libraries/kosherZmanim/kosher-zmanim.js"),
       import(ROY + "js/core/zmanimCore.js"),
-      import(ROY + "js/ROYZmanim.js"),
+      import(ROY + "js/core/ROYZmanim.js"),
     ]);
     const geo = new KZ.GeoLocation(loc.name || "Shul", Number(loc.lat), Number(loc.long), Number(loc.elevation) || 0, loc.timezone);
     // Weather-based refraction and haze, as the site uses. The terrain horizon (visible sunrise) is left
@@ -113,7 +113,7 @@ self.onmessage = async ({ data }) => {
     const [KZ, core, roy, rd] = await Promise.all([
       import(ROY + "libraries/kosherZmanim/kosher-zmanim.js"),
       import(ROY + "js/core/zmanimCore.js"),
-      import(ROY + "js/ROYZmanim.js"),
+      import(ROY + "js/core/ROYZmanim.js"),
       import(ROY + "js/refraction-data.js"),
     ]);
     const geo = new KZ.GeoLocation(loc.name || "Shul", +loc.lat, +loc.long, +loc.elevation || 0, loc.timezone);
