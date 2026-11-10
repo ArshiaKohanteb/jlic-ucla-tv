@@ -8,6 +8,10 @@ import { FlyerSlide, PhotoSlide, AnnouncementSlide, DonateSlide, LogoSlide, Shab
 import { skyGradient, nightness } from "./sky.js";
 import { upcomingMinyanim } from "../shared/minyan.js";
 import { subscribeAllSignups } from "../shared/signups.js";
+import { subscribeAttendance, buildLog, buildStats } from "../shared/attendance.js";
+import { subscribeLunches, lunchBoard } from "../shared/lunches.js";
+import { MinyanSlide, LeaderboardSlide, LunchesSlide, asOn } from "./scenes/Minyan.jsx";
+import { isDemo } from "../shared/store.js";
 
 const params = new URLSearchParams(location.search);
 const HOLD = params.get("hold"); // schedule | flyer | announcement (dashboard preview)
@@ -19,6 +23,24 @@ const HANDHELD = (navigator.maxTouchPoints > 0 && Math.min(screen.width, screen.
   || (navigator.deviceMemory && navigator.deviceMemory <= 2)
   || params.has("lite");
 const SCHEDULE = { kind: "schedule", key: "schedule" };
+// ?demo&showcase: every slide in the rotation, the next minyan both as its poll and as
+// "We're on", and a page around it (in an iframe) can jump to any slide by message.
+const SHOWCASE = isDemo() && params.has("showcase");
+
+// The loop, in two rounds:
+//   times → next minyan → one flyer or announcement (if any) → donate
+//   times → next minyan → leaderboard → free lunches
+// Anything missing is skipped. The showcase shows the poll in the first round and
+// "We're on" in the second, so both can be seen.
+const ROUNDS_SKIP = ["minyan", "donate", "leaderboard", "lunches", "logo"];
+function loop(content, turn) {
+  const of = (kind) => content.find((c) => c.kind === kind);
+  const minyan = content.filter((c) => c.kind === "minyan");
+  const others = content.filter((c) => !ROUNDS_SKIP.includes(c.kind));
+  const other = others.length ? others[turn % others.length] : null;
+  const seq = [SCHEDULE, minyan[0], other, of("donate"), SCHEDULE, minyan[1] || minyan[0], of("leaderboard"), of("lunches")].filter(Boolean);
+  return seq.filter((c, i) => !(c.kind === "schedule" && seq[i - 1]?.kind === "schedule") && !(i === seq.length - 1 && c.kind === "schedule" && seq.length > 1));
+}
 
 export default function App() {
   const tv = useTv();
@@ -41,17 +63,34 @@ export default function App() {
   const weekday = localInfo(now, tz);
   const shabbatView = !!sched && (sched.inPeriod || weekday.weekday === 6 || (weekday.weekday === 5 && weekday.hour >= 12) || (!minyanim.length && sched.groups.length > 0));
 
+  // Everyone's minyanim so far (never reset) and the lunches they've had.
+  const [attendance, setAttendance] = useState({});
+  const [lunches, setLunches] = useState({});
+  useEffect(() => subscribeAttendance(setAttendance), []);
+  useEffect(() => subscribeLunches(setLunches), []);
+  const lunchRows = useMemo(() => (tv ? lunchBoard(buildStats(buildLog(tv, signups, attendance, today), today).board, lunches) : []), [tv, signups, attendance, lunches, today]);
+  // The next minyan gets its own slide: its poll, or who's coming once it reaches ten.
+  const featured = shabbatView ? null : minyanim.find((o) => !o.off) || null;
+
   // From Thursday the coming Shabbat gets its own slide between flyers.
   const content = useMemo(() => {
+    const s = tv?.settings || {};
     const coming = !shabbatView && sched?.groups.some((g) => g.key === "period");
-    return coming ? [{ kind: "shabbat", key: "shabbat" }, ...baseContent] : baseContent;
-  }, [baseContent, shabbatView, sched]);
+    const list = coming ? [{ kind: "shabbat", key: "shabbat" }, ...baseContent] : [...baseContent];
+    if (SHOWCASE && featured) list.unshift({ kind: "minyan", key: "minyan-poll", force: "poll" }, { kind: "minyan", key: "minyan-on", force: "on" });
+    else if (featured && s.showMinyanSlide !== false) list.unshift({ kind: "minyan", key: "minyan" });
+    if (s.showLeaderboard !== false && lunchRows.length) list.push({ kind: "leaderboard", key: "leaderboard" });
+    if (s.showLunches !== false && lunchRows.some((r) => r.free > 0)) list.push({ kind: "lunches", key: "lunches" });
+    return list;
+  }, [baseContent, shabbatView, sched, !!featured, tv?.settings, lunchRows.length, lunchRows.some((r) => r.free > 0)]);
 
   // ── Rotation ──
   const [slides, setSlides] = useState({ cur: SCHEDULE, n: 0, tick: 0 });
   const [prev, setPrev] = useState(null);
   const pointer = useRef(0);
   const sinceSchedule = useRef(0);
+  const step = useRef(0); // where we are in loop()
+  const turn = useRef(0); // which flyer or announcement is up next
   const live = useRef({});
   live.current = { tv, content, sched };
 
@@ -65,12 +104,19 @@ export default function App() {
       const s = tv.settings;
       const holdForMinyan = s.holdBeforeMinyan > 0 && sched?.next && minutesUntil(sched.next.epoch) <= s.holdBeforeMinyan;
       let pool = content;
-      if (HOLD === "flyer" || HOLD === "announcement" || HOLD === "community" || HOLD === "donate" || HOLD === "logo" || HOLD === "shabbat") pool = content.filter((c) => c.kind === HOLD);
+      if (HOLD === "flyer" || HOLD === "announcement" || HOLD === "community" || HOLD === "donate" || HOLD === "logo" || HOLD === "shabbat" || HOLD === "minyan" || HOLD === "leaderboard" || HOLD === "lunches") pool = content.filter((c) => c.kind === HOLD);
       const shabbatPause = s.pauseOnShabbat && sched?.inPeriod;
       const contentAllowed = HOLD !== "schedule" && pool.length > 0 && (HOLD || (!s.contentPaused && !holdForMinyan && !shabbatPause));
 
       let next = SCHEDULE;
-      if (contentAllowed) {
+      if (!HOLD) {
+        if (contentAllowed) {
+          const seq = loop(content, turn.current);
+          step.current = (step.current + 1) % seq.length;
+          if (step.current === 0) turn.current += 1;
+          next = seq[step.current];
+        } else step.current = 0;
+      } else if (contentAllowed) {
         const between = Math.max(1, s.itemsBetween || 1);
         const wantContent = HOLD || cur.kind === "schedule" || sinceSchedule.current < between;
         if (wantContent) {
@@ -101,6 +147,34 @@ export default function App() {
     let cancelled = false;
     return () => { cancelled = true; clearTimeout(t); };
   }, [slides, !!tv]);
+
+  // Showcase: tell the page around us what's on, and jump when it asks.
+  useEffect(() => {
+    if (!SHOWCASE || window.parent === window) return;
+    const seen = new Set();
+    const list = loop(content, turn.current).filter((c) => !seen.has(c.key) && seen.add(c.key)).map((c) => ({ key: c.key, kind: c.kind }));
+    window.parent.postMessage({ type: "tv-slide", key: slides.cur.key, seconds: tv ? slideSeconds(slides.cur, tv.settings) : 0, list }, "*");
+  }, [slides, content]);
+  useEffect(() => {
+    if (!SHOWCASE) return;
+    const onMessage = (e) => {
+      if (e.data?.type !== "tv-show") return;
+      const { content } = live.current;
+      const i = content.findIndex((c) => c.key === e.data.key);
+      const next = e.data.key === "schedule" ? SCHEDULE : content[i];
+      if (!next) return;
+      pointer.current = i + 1;
+      sinceSchedule.current = next.kind === "schedule" ? 0 : 1;
+      const at = loop(content, turn.current).findIndex((c) => c.key === next.key);
+      step.current = at >= 0 ? at : 0;
+      setSlides((p) => {
+        if (p.cur.key !== next.key) setPrev({ slide: p.cur, n: p.n });
+        return { cur: next, n: p.cur.key !== next.key ? p.n + 1 : p.n, tick: p.tick + 1 };
+      });
+    };
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, []);
 
   useEffect(() => {
     if (!prev) return;
@@ -139,6 +213,10 @@ export default function App() {
     if (slide.kind === "donate") return <DonateSlide {...props} shabbat={sched?.inPeriod} />;
     if (slide.kind === "logo") return <LogoSlide />;
     if (slide.kind === "shabbat") return <ShabbatSlide {...props} />;
+    // These read the live data, so a vote shows up while the slide is on screen.
+    if (slide.kind === "minyan") return <MinyanSlide {...props} slide={{ ...slide, minyan: slide.force === "on" ? asOn(featured) : slide.force === "poll" ? { ...featured, on: false } : featured }} />;
+    if (slide.kind === "leaderboard") return <LeaderboardSlide slide={{ ...slide, rows: lunchRows }} />;
+    if (slide.kind === "lunches") return <LunchesSlide slide={{ ...slide, rows: lunchRows }} />;
     return <Board {...props} minyanim={minyanim} shabbatView={shabbatView} signups={signups} />;
   };
 

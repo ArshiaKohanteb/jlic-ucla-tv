@@ -57,8 +57,15 @@
       }
     },
     "attendance": {
-      ".read": "auth != null && root.child('tvAdmins').child(auth.uid).exists()",
+      ".read": true,
       ".write": "auth != null && root.child('tvAdmins').child(auth.uid).exists()"
+    },
+    "lunches": {
+      ".read": true,
+      "$key": {
+        ".write": "auth != null && root.child('tvAdmins').child(auth.uid).exists()",
+        ".validate": "newData.hasChildren(['used', 'name']) && newData.child('used').isNumber() && newData.child('name').isString() && newData.child('name').val().length <= 40"
+      }
     },
     "waBot": {
       "status": {

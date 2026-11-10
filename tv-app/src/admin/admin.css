@@ -499,3 +499,12 @@ form .access-pick { padding-left: 0; }
 .pl-notes { font-size: 14px; font-weight: 700; color: var(--gold); }
 .pl-missing { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 14px; border-radius: 14px; background: var(--bg); font-size: 14px; color: var(--ink-2); }
 .pl-missing a { font-weight: 700; color: var(--royal); }
+
+/* Free lunches */
+.lunch-table { margin-top: 12px; }
+.lunch-actions { display: flex; justify-content: flex-end; align-items: center; gap: 6px; }
+.lunch-actions .btn { height: 36px; }
+
+/* The TV's loop, on the Appearance page */
+.loop-order { margin: 4px 0 0 22px; display: grid; gap: 4px; columns: 2; font-weight: 600; }
+.loop-order li::marker { color: var(--muted); }
