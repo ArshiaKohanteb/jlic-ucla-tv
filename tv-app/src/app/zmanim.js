@@ -147,6 +147,8 @@ export function opinionsFor(K, date, loc, roy) {
     rt: [["72", "72 minutes", set + 72 * MIN], ["72z", "72 proportional minutes", set + hour * 1.2], ["16.1", "16.1°", after(16.1)]],
     midnight: [["astro", "Astronomical", ms(c.getSolarMidnight())]],
   };
+  // The TV only works out Rabbeinu Tam for Shabbat; on other days Rabbi Ovadia's is 72 proportional minutes.
+  if (roy && roy.rt == null) roy = { ...roy, rt: round(set + hour * 1.2, true) };
   const royLabel = loc.id === "ucla" ? "Rabbi Ovadia (Hillel TV)" : "Rabbi Ovadia";
   const out = {};
   for (const z of ZMANIM) {
