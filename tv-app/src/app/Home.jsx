@@ -341,10 +341,10 @@ export default function Home({ onVote }) {
 
       <div className="h-controls rise">
         <button className="h-pill" aria-expanded={picking} onClick={() => setPicking(!picking)}>
-          <CalendarDays size={18} /><span>{day === today ? "Today" : civilDate(day, { weekday: "short", month: "short", day: "numeric" })}</span><ChevronDown className="h-caret" size={16} />
+          <CalendarDays size={18} /><span>{day === today ? "Today" : civilDate(day, { weekday: "short", month: "short", day: "numeric" })}</span>
         </button>
         <button className="h-pill h-loc" onClick={() => setSheet("location")}>
-          {ucla ? <GraduationCap size={18} /> : <MapPin size={18} />}<span>{loc.name}</span><ChevronDown className="h-caret" size={16} />
+          {ucla ? <GraduationCap size={18} /> : <MapPin size={18} />}<span>{loc.name}</span>
         </button>
         <button className="h-pill h-icon" aria-label="Customize" onClick={() => setSheet("customize")}><SlidersHorizontal size={19} /></button>
       </div>

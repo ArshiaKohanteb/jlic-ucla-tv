@@ -23,14 +23,14 @@
 
 /* Day, place, customize */
 .h-controls { display: flex; gap: 8px; }
-.h-pill { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-width: 0; min-height: 48px; padding: 0 16px; border-radius: 16px; background: rgba(246, 242, 233, .12); font-size: 16px; font-weight: 600; text-align: center; transition: background .2s, transform .15s; }
+.h-pill { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-width: 0; min-height: 48px; padding: 0 14px; border-radius: 16px; background: rgba(246, 242, 233, .12); font-size: 16px; font-weight: 600; text-align: center; transition: background .2s, transform .15s; }
 .h-pill:active { background: rgba(246, 242, 233, .2); transform: scale(.98); }
 .h-pill > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .h-pill svg { flex: none; }
 .h-loc { flex: 1; }
 .h-icon { flex: none; width: 48px; padding: 0; }
 .h-caret { opacity: .6; transition: transform .25s; }
-.h-pill[aria-expanded="true"] .h-caret { transform: rotate(180deg); }
+.h-pill[aria-expanded="true"] { background: var(--ink); color: var(--night); }
 .h-days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin-top: 10px; animation: drop .25s ease; }
 .h-days button { display: grid; justify-items: center; gap: 2px; padding: 9px 0; border-radius: 14px; background: rgba(246, 242, 233, .08); text-align: center; }
 .h-days small { font-size: 12px; color: var(--soft); }
