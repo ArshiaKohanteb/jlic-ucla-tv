@@ -27,7 +27,7 @@ export function watchAccount(cb) {
     cb({
       uid: user.uid, email: user.email, name: saved?.name || user.displayName || staff?.name || "",
       counts: saved?.counts !== false, phone: saved?.phone || user.phoneNumber || "",
-      phoneLogin: !!user.phoneNumber, admin: !!staff && can(staff, "schedule"),
+      phoneLogin: !!user.phoneNumber, admin: !!staff && can(staff, "schedule"), zmanim: saved?.zmanim || null,
     });
   });
 }

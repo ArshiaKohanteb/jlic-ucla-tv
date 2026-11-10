@@ -184,8 +184,8 @@ export default function Board({ tv, z, sched, now, tz, minyanim, shabbatView, si
         {shabbatView ? <ShabbatList sched={sched} tz={tz} /> : <Minyanim list={minyanim} tz={tz} now={now} />}
         {!shabbatView && (
           <div className="signup">
-            <QR value={`https://${SITE}${checkIn ? "/?here" : ""}`} label={checkIn ? "Check in" : `Sign up at ${SITE}`} />
-            {checkIn ? <p>Here?<br /><b>Scan to check in</b></p> : <p>Coming?<br /><b>{SITE}</b></p>}
+            <QR value={`https://${SITE}${checkIn ? "/?here" : "/vote"}`} label={checkIn ? "Check in" : `Vote at ${SITE}/vote`} />
+            {checkIn ? <p>Here?<br /><b>Scan to check in</b></p> : <p>Coming?<br /><b>{SITE}/vote</b></p>}
           </div>
         )}
       </aside>

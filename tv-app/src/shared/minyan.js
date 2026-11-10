@@ -84,7 +84,7 @@ export function statusWords(o) {
   if (o.off) return { big: "Not today", small: "Next time" };
   if (o.started) return { big: "Davening now", small: "Come on in" };
   if (o.on) return { big: "We're on", small: "Super optimal" };
-  if (!o.known) return { big: "Not confirmed", small: "Sign up at uclaminyan.com" };
+  if (!o.known) return { big: "Not confirmed", small: "Vote at uclaminyan.com/vote" };
   const small = o.need === 1 ? "Who's the final tzadik?" : o.need === 5 ? "Halfway there" : `${o.need} more`;
   return { big: `${o.need * 10}% to go`, small };
 }

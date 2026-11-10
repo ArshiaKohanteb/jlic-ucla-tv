@@ -19,7 +19,7 @@ const COMMON = { Shacharit: ["08:00", "09:00"], Mincha: ["13:10"], Arvit: ["19:0
 const hhmm = (t) => formatHHMM(t);
 const waLink = (text) => `https://wa.me/?text=${encodeURIComponent(text)}`;
 const onMessage = (o) => `Minyan is on! ${o.name} ${o.day.toLowerCase()}${o.locked || o.planned ? ` at ${hhmm(o.locked || o.planned)}` : ""}${o.place ? ` in the ${o.place}` : ""}.`;
-const askMessage = (o) => `${o.name} ${o.day.toLowerCase()}: ${o.count} of ${TEN} so far. Sign up at uclaminyan.com`;
+const askMessage = (o) => `${o.name} ${o.day.toLowerCase()}: ${o.count} of ${TEN} so far. Vote at uclaminyan.com/vote`;
 
 function TimesPicker({ value, onChange }) {
   const [extra, setExtra] = useState("08:00");
@@ -73,7 +73,7 @@ function Missing({ o, regulars }) {
   const list = (regulars || []).filter((r) => !inIds.has(r.key) && !r.key.startsWith("n_")).slice(0, 6);
   if (!list.length || o.on || o.off) return null;
   const names = list.map((r) => r.name.split(" ")[0]);
-  const text = `We need ${o.need} more for ${o.name} ${o.day.toLowerCase()}! ${names.join(", ")}, are you in? uclaminyan.com`;
+  const text = `We need ${o.need} more for ${o.name} ${o.day.toLowerCase()}! ${names.join(", ")}, are you in? uclaminyan.com/vote`;
   return (
     <p className="pl-missing">
       <span>Usually come: {list.map((r) => r.name).join(", ")}</span>

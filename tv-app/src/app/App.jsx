@@ -134,7 +134,7 @@ function Roles({ o, mine, onSet }) {
   );
 }
 
-function Sheet({ onClose, children }) {
+export function Sheet({ onClose, children }) {
   return (
     <div className="sheet-bg" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
       <div className="sheet" role="dialog" aria-modal="true">
@@ -211,7 +211,7 @@ function EmailLink({ ucla, onOther, onPhone, onError }) {
   );
 }
 
-function SignIn({ onClose }) {
+export function SignIn({ onClose }) {
   const [mode, setMode] = useState("start");
   const [msg, setMsg] = useState("");
   const onError = (e) => setMsg(friendlyError(e));
@@ -234,7 +234,7 @@ function SignIn({ onClose }) {
 }
 
 // A link opened on a different phone or browser has to be told the email again.
-function ConfirmEmail({ onDone }) {
+export function ConfirmEmail({ onDone }) {
   const [email, setEmail] = useState("");
   const [msg, setMsg] = useState("");
   return (
@@ -253,7 +253,7 @@ function ConfirmEmail({ onDone }) {
 }
 
 // Every account needs a name and a number, however they came in.
-function NeedInfo({ user, onSave }) {
+export function NeedInfo({ user, onSave }) {
   const [name, setName] = useState(user.name || "");
   const [v, setV] = useState(user.phone || "");
   const [msg, setMsg] = useState("");
@@ -328,7 +328,7 @@ function OpenPollSheet({ tv, today, onClose }) {
   );
 }
 
-function Profile({ user, onSave, onClose }) {
+export function Profile({ user, onSave, onClose }) {
   const [name, setName] = useState(user.name);
   const [phone, setPhone] = useState(user.phone || "");
   const [linking, setLinking] = useState(false);
@@ -352,7 +352,7 @@ function Profile({ user, onSave, onClose }) {
   );
 }
 
-export default function App() {
+export default function App({ onHome }) {
   const tv = useTv();
   const z = useZmanim();
   const now = useNow(30_000);
@@ -444,6 +444,7 @@ export default function App() {
       <header className="top">
         <img src={`${import.meta.env.BASE_URL}logo.png`} alt="JLIC" />
         <img className="hillel" src={`${import.meta.env.BASE_URL}hillel.png`} alt="Hillel at UCLA" />
+        <a className="h-back" href="./" onClick={(e) => { e.preventDefault(); onHome(); }}>Zmanim</a>
         {user && <button className="me" aria-label="Your account" onClick={() => setSheet("profile")}>{(user.name || "?")[0].toUpperCase()}</button>}
       </header>
 
