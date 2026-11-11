@@ -1,0 +1,4 @@
+# A copy of ../../firebase/database.rules.json (the emulator only reads rules inside this folder)
+database.rules.json
+*-debug.log
+java/
