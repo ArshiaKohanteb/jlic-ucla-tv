@@ -154,3 +154,103 @@ ul { list-style: none; }
 .logo-slide .hillel { height: 300px; }
 
 .fx-lite .photo, .fx-lite .backdrop { animation: none; filter: none; }
+
+/* Minyan slides: the poll, who is coming, the leaderboard and free lunches.
+   Everything stays above the bottom bar (196px). */
+.mp, .mo, .lb, .fl { padding: 64px var(--m) 220px; --glass: rgba(255, 255, 255, .06); --line: rgba(246, 242, 233, .14); }
+.mx-card { border-radius: 26px; background: var(--glass); border: 1px solid var(--line); }
+.mx-eyebrow { font-size: 30px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--gold); }
+.mx-title { font-size: 112px; font-weight: 600; line-height: .95; letter-spacing: -.04em; }
+.mx-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 40px; }
+.mx-sub { font-size: 36px; font-weight: 500; color: var(--soft); padding-bottom: 8px; }
+.mx-sub b { color: var(--gold); font-weight: 600; }
+.mx-card .qr { flex: none; border-radius: 10px; }
+
+/* 1. Poll */
+.mp { display: grid; grid-template-columns: 520px 1fr; gap: 64px; }
+.mp-left { display: flex; flex-direction: column; gap: 24px; padding-top: 8px; min-height: 0; }
+.mp-title { font-size: 128px; font-weight: 600; line-height: .95; letter-spacing: -.04em; overflow-wrap: anywhere; }
+.mp-rule { font-size: 34px; font-weight: 500; line-height: 1.3; color: var(--soft); }
+.mp-rule b { color: var(--ink); font-weight: 600; }
+.mp-need { display: flex; align-items: center; gap: 16px; font-size: 32px; font-weight: 600; }
+.mp-need i { flex: none; width: 14px; height: 14px; border-radius: 50%; background: var(--gold); box-shadow: 0 0 0 6px rgba(247, 209, 61, .18); animation: mp-pulse 2s ease-in-out infinite; }
+@keyframes mp-pulse { 50% { box-shadow: 0 0 0 12px rgba(247, 209, 61, 0); } }
+.mp-close { font-size: 28px; font-weight: 500; color: var(--soft); }
+.mp-join { margin-top: auto; display: flex; align-items: center; gap: 26px; padding: 22px; }
+.mp-join .qr { width: 132px; height: 132px; }
+.mp-join p { font-size: 28px; font-weight: 500; line-height: 1.25; color: var(--soft); }
+.mp-join b { display: block; font-size: 36px; font-weight: 600; color: var(--ink); margin-bottom: 4px; }
+.mp-cols { display: grid; gap: 22px; min-height: 0; }
+.mp-col { padding: 26px 22px 22px; display: flex; flex-direction: column; min-width: 0; }
+.mp-col.lead { background: rgba(247, 209, 61, .09); border-color: rgba(247, 209, 61, .55); }
+.mp-col > .t { font-size: 66px; font-weight: 600; line-height: 1; letter-spacing: -.035em; white-space: nowrap; }
+.mp-n { margin-top: 10px; font-size: 30px; font-weight: 600; color: var(--soft); }
+.mp-col.lead > .t, .mp-col.lead .mp-n { color: var(--gold); }
+.mp-seats { margin-top: auto; padding-top: 20px; display: flex; flex-direction: column-reverse; gap: 7px; }
+.mp-seat { height: 46px; flex: none; border-radius: 10px; border: 2px dashed rgba(246, 242, 233, .22); display: flex; align-items: center; padding: 0 16px; font-size: 28px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mp-seat.in { border: 0; background: rgba(246, 242, 233, .13); }
+.mp-col.lead .mp-seat.in { background: rgba(247, 209, 61, .22); }
+.mp-seat.ten { justify-content: center; color: var(--soft); font-size: 24px; font-weight: 600; letter-spacing: .08em; border-color: rgba(246, 242, 233, .3); }
+.mp-col.lead .mp-seat.ten { color: var(--gold); border-color: rgba(247, 209, 61, .6); }
+
+/* 2. Minyan on */
+.mo { display: grid; grid-template-columns: 1fr 700px; gap: 80px; }
+.mo-left { display: flex; flex-direction: column; justify-content: center; min-width: 0; }
+.mo-badge { align-self: flex-start; display: inline-flex; align-items: center; gap: 16px; padding: 14px 28px 14px 22px; border-radius: 999px; background: var(--gold); color: #1A1430; font-size: 36px; font-weight: 700; letter-spacing: -.01em; }
+.mo-badge svg { width: 34px; height: 34px; }
+.mo-name { margin-top: 40px; font-size: 76px; font-weight: 600; letter-spacing: -.03em; color: var(--soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mo-time { font-size: 300px; font-weight: 600; line-height: .9; letter-spacing: -.055em; margin-left: -10px; white-space: nowrap; }
+.mo-time .t small { font-size: 90px; letter-spacing: 0; margin-left: 18px; }
+.mo-ten { margin-top: 44px; display: flex; gap: 10px; }
+.mo-ten i { width: 54px; height: 12px; border-radius: 6px; background: var(--gold); }
+.mo-ten i.x { background: var(--ink); opacity: .9; }
+.mo-meta { margin-top: 30px; display: flex; gap: 40px; font-size: 40px; font-weight: 500; color: var(--soft); }
+.mo-meta b { color: var(--ink); font-weight: 600; }
+.mo-right { display: flex; flex-direction: column; justify-content: center; gap: 22px; min-height: 0; }
+.mo-who { padding: 30px 40px; border-radius: 30px; }
+.mo-who h3 { display: flex; justify-content: space-between; align-items: baseline; gap: 20px; font-size: 40px; font-weight: 600; margin-bottom: 16px; }
+.mo-who h3 span { font-size: 28px; color: var(--soft); font-weight: 500; }
+.mo-who ul { display: grid; grid-template-columns: 1fr 1fr; column-gap: 30px; }
+.mo-who li { font-size: 36px; font-weight: 500; padding: 7px 0; border-top: 1px solid var(--line); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mo-who li:nth-child(-n+2) { border-top: 0; }
+.mo-who li.mo-more { color: var(--soft); }
+.mo-foot { margin-top: 18px; font-size: 28px; color: var(--soft); }
+.mo-give { display: flex; align-items: center; gap: 28px; padding: 22px 26px; }
+.mo-give .qr { width: 148px; height: 148px; }
+.mo-give .pay { width: 150px; height: 46px; border-radius: 12px; margin-bottom: 12px; }
+.mo-give .pay-venmo svg { width: 120px; height: 120px; }
+.mo-give p { font-size: 28px; font-weight: 500; line-height: 1.25; color: var(--soft); }
+.mo-give b { display: block; font-size: 36px; font-weight: 600; color: var(--ink); margin-bottom: 2px; }
+
+/* 3. Leaderboard */
+.lb-podium { margin-top: 44px; display: grid; gap: 26px; }
+.lb-pod { padding: 30px 36px; display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-rows: auto auto; column-gap: 26px; align-items: center; border-radius: 28px; }
+.lb-pod.first { background: rgba(247, 209, 61, .1); border-color: rgba(247, 209, 61, .55); }
+.lb-rank { grid-row: span 2; font-size: 132px; font-weight: 700; line-height: .8; letter-spacing: -.06em; color: rgba(246, 242, 233, .16); }
+.lb-pod.first .lb-rank { color: var(--gold); }
+.lb-name { font-size: 50px; font-weight: 600; letter-spacing: -.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lb-count { display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 18px; font-size: 32px; font-weight: 500; color: var(--soft); }
+.lb-count b { font-size: 46px; color: var(--ink); font-weight: 600; }
+.lb-next { font-size: 28px; font-weight: 500; color: var(--soft); white-space: nowrap; }
+.lb-next.close { color: var(--gold); font-weight: 600; }
+.lb-rest { margin-top: 30px; display: grid; grid-template-columns: 1fr 1fr; grid-auto-flow: column; grid-template-rows: repeat(5, auto); column-gap: 80px; }
+.lb-row { display: grid; grid-template-columns: 70px minmax(0, 1fr) auto 250px; align-items: center; gap: 18px; padding: 15px 8px; border-top: 1px solid var(--line); font-size: 38px; font-weight: 500; }
+.lb-r { color: var(--soft); font-weight: 600; }
+.lb-n { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lb-row b { font-weight: 600; text-align: right; }
+.lb-row .lb-next { text-align: right; }
+
+/* 4. Free lunches */
+.fl-total { text-align: right; }
+.fl-total b { display: block; font-size: 96px; font-weight: 600; letter-spacing: -.04em; line-height: 1; color: var(--gold); }
+.fl-total span { font-size: 30px; color: var(--soft); font-weight: 500; }
+.fl-list { margin-top: 44px; columns: 4; column-gap: 56px; column-rule: 1px solid var(--line); column-fill: balance; max-height: 560px; }
+.fl-row { break-inside: avoid; display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 14px 0; border-bottom: 1px solid var(--line); font-size: 38px; font-weight: 500; white-space: nowrap; }
+.fl-row span { overflow: hidden; text-overflow: ellipsis; }
+.fl-row b { flex: none; display: inline-flex; align-items: center; justify-content: center; min-width: 58px; height: 48px; padding: 0 14px; border-radius: 24px; background: var(--gold); color: #1A1430; font-size: 30px; font-weight: 700; }
+.fl-list.dense .fl-row { padding: 6px 0; font-size: 30px; }
+.fl-list.dense .fl-row b { min-width: 46px; height: 38px; font-size: 24px; }
+.fl-list { overflow: hidden; }
+.fl-list.denser { columns: 5; column-gap: 40px; }
+.fl-list.denser .fl-row { padding: 4px 0; font-size: 27px; }
+.fl-list.denser .fl-row b { min-width: 40px; height: 32px; font-size: 21px; }
