@@ -67,7 +67,8 @@ ul { list-style: none; }
 .marks i.in { background: var(--ink); }
 .is-on .marks i.in { background: var(--gold); }
 .none { margin-top: 44px; font-size: 48px; font-weight: 500; color: var(--soft); }
-.signup { margin-top: auto; display: flex; align-items: center; justify-content: flex-end; gap: 22px; text-align: right; font-size: 30px; line-height: 1.25; color: var(--soft); }
+.signups { margin-top: auto; display: flex; flex-direction: column; gap: 18px; }
+.signup { display: flex; align-items: center; justify-content: flex-end; gap: 22px; text-align: right; font-size: 30px; line-height: 1.25; color: var(--soft); }
 .signup b { color: var(--ink); font-weight: 600; }
 .signup .qr { order: 2; width: 112px; height: 112px; }
 .qr { display: block; border-radius: 6px; }
@@ -109,6 +110,10 @@ ul { list-style: none; }
 .bar-next > span:not(.t) { font-size: 32px; font-weight: 500; color: var(--soft); }
 .bar-next .t { font-size: 44px; }
 .bar .logos { gap: 40px; }
+.bar-end { display: flex; align-items: flex-end; gap: 48px; }
+.bar-join { display: flex; align-items: center; gap: 18px; text-align: right; font-size: 24px; line-height: 1.2; color: var(--soft); }
+.bar-join b { color: var(--ink); font-weight: 600; }
+.bar-join .qr { width: 104px; height: 104px; }
 .backdrop { position: absolute; inset: -60px; background-size: cover; background-position: center; filter: blur(50px) brightness(.45) saturate(1.2); }
 .flyer-row { position: absolute; left: 0; right: 0; top: 44px; bottom: 170px; display: flex; align-items: center; justify-content: center; gap: 36px; }
 .flyer-row img { display: block; max-height: 100%; max-width: 100%; object-fit: contain; }
@@ -141,6 +146,9 @@ ul { list-style: none; }
 .pay-zelle svg { width: 42px; height: 42px; fill: #fff; }
 .pay-zelle span, .pay-web span { font-size: 40px; font-weight: 700; letter-spacing: -.02em; }
 .pay-web { background: var(--ink); color: #0B0D1A; }
+.pay-wa { background: #25D366; color: #0B0D1A; }
+.pay-wa span { font-size: 36px; font-weight: 700; letter-spacing: -.02em; }
+.way .pay-wa span { color: #0B0D1A; }
 .way span { color: var(--soft); }
 .way .pay-zelle span { color: #fff; }
 .way .pay-web span { color: #0B0D1A; }

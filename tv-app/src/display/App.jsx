@@ -204,6 +204,11 @@ export default function App() {
   const flip = FLIP && !params.has("preview");
   const dim = nightDim(tv.settings, now, tz);
   const onBoard = slides.cur.kind === "schedule";
+  // The WhatsApp group's code rides in the bar, except where the slide has its own (the poll
+  // and Donate), and never over Shabbat.
+  const cur = slides.cur;
+  const pollShowing = cur.kind === "minyan" && (cur.force === "poll" || (!cur.force && !featured?.on));
+  const barJoin = !shabbatView && !pollShowing && cur.kind !== "donate" ? tv?.settings?.waInvite || "" : "";
 
   const render = (slide) => {
     const props = { slide, tv, z, sched, now, tz };
@@ -234,7 +239,7 @@ export default function App() {
         <Stars opacity={stars} />
         {prev && <div className="layer layer-out" key={"out" + prev.n}>{render(prev.slide)}</div>}
         <div className="layer layer-in" key={"in" + slides.n}>{render(slides.cur)}</div>
-        {!onBoard && <Bar next={minyanim[0]} tz={tz} now={now} logos={slides.cur.kind !== "logo"} />}
+        {!onBoard && <Bar next={minyanim[0]} tz={tz} now={now} logos={slides.cur.kind !== "logo"} join={barJoin} />}
         <BigClock tz={tz} />
         {dim > 0 && <div className="night-dim" style={{ opacity: dim }} />}
       </div>

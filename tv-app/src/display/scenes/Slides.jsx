@@ -99,6 +99,7 @@ const ZELLE_PATH = "M13.559 24h-2.841a.483.483 0 0 1-.483-.483v-2.765H5.638a.667
 export function PayLogo({ kind }) {
   if (kind === "Venmo") return <div className="pay pay-venmo"><svg viewBox="0 0 24 24" role="img" aria-label="Venmo"><path d={VENMO_PATH} /></svg></div>;
   if (kind === "Zelle") return <div className="pay pay-zelle"><svg viewBox="0 0 24 24" aria-hidden="true"><path d={ZELLE_PATH} /></svg><span>Zelle</span></div>;
+  if (kind === "WhatsApp") return <div className="pay pay-wa"><span>Minyan chat</span></div>;
   return <div className="pay pay-web"><span>Online</span></div>;
 }
 
@@ -108,6 +109,7 @@ export function DonateSlide({ tv, shabbat }) {
     d.venmo && { key: "Venmo", value: d.venmo.startsWith("@") ? d.venmo : "@" + d.venmo, qr: `https://venmo.com/u/${venmoUser(d.venmo)}` },
     d.zelle && { key: "Zelle", value: d.zelle, qr: d.zelleQr || null },
     d.website && { key: "Online", value: site(d.website), qr: `https://${site(d.website)}` },
+    tv.settings.waInvite && { key: "WhatsApp", value: "Join on WhatsApp", qr: tv.settings.waInvite },
   ].filter(Boolean);
   return (
     <div className="slide poster">
@@ -134,14 +136,18 @@ export function ShabbatSlide({ sched, tz }) {
 }
 
 // Stays along the bottom during every slide so the room always has what's next.
-export function Bar({ next, tz, now, logos }) {
+// `join` is the WhatsApp group's invite link, shown as a small code beside the logos.
+export function Bar({ next, tz, now, logos, join }) {
   const when = next ? whenWords(next, now) : null;
   return (
     <div className="bar">
       <div className="bar-next">
         {next && <><b dir="auto">{next.name}</b>{next.epoch != null && <Time epoch={next.epoch} tz={tz} />}<span className={when.soon ? "soon" : ""}>{when.text}</span></>}
       </div>
-      {logos && <Logos />}
+      <div className="bar-end">
+        {join && <div className="bar-join"><p>Join the<br /><b>minyan chat</b></p><QR value={join} label="Join the WhatsApp group" /></div>}
+        {logos && <Logos />}
+      </div>
     </div>
   );
 }
