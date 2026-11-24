@@ -13,16 +13,47 @@ The site, dashboard and TV then count WhatsApp votes and site sign-ups together.
 
 ## How polls are read
 
-The poll's question says which minyan and day: "Shacharit tomorrow?", "Mincha today at 1:10?",
-"Thursday shacharis", "Mincha 11/25". With no day it means today if that minyan is still
-ahead today, otherwise tomorrow. With no minyan named, it's the only minyan
-that day, or it's ignored (so a pizza poll does nothing).
+Every poll is sorted into one of four prayers, shown on the site as **Shacharit**, **Mincha**,
+**Mincha/Arvit** and **Arvit**, whatever the group calls them:
 
-Options can be times ("8:00", "9 AM") or anything else. "No", "Can't", "Maybe" don't count.
-Anything else counts as yes. With two or more times, those become the minyan's choices for the
-day, exactly like a poll opened from the dashboard.
+| Prayer | Understood from |
+|---|---|
+| Shacharit | shacharit/shacharis, שחרית, morning, "Prayer of the dawn", Hoshana Rabbah; or a poll whose times are all in the morning ("Optimal Tuesday minyan") |
+| Mincha | mincha, מנחה, afternoon, "Meal offering", "Grain offering" (Mincha's literal meaning) |
+| Mincha/Arvit | "Mincha/Maariv", "mincha maariv", Kabbalat Shabbat ("kabshab"), "4:45 with maariv" |
+| Arvit | arvit, maariv, ערבית, מעריב, evening |
+
+Each option counts on its own: in a "Meal offering" poll, "6:25 mincha/maariv" goes to
+Mincha/Arvit, and in "Mincha and/or maariv", "Post vigil maariv ~8:45" goes to Arvit. If the
+site doesn't have a minyan for that prayer yet, the bot adds one with no regular days, so it
+shows on the TV only on days it has a poll.
+
+**Which day:** a day in the question ("Monday", "ב׳ בשבת", "tomorrow", "tonight", "11/25")
+wins. With none, it's today if that prayer is still ahead today, otherwise tomorrow.
+
+**Options:** times ("8:00", "1", "333 pm", "12:07 (following chabura)"), or no ("No", "Can't",
+"Sorry"). Anything else ("Netz at Dodger Stadium", "Still on vacation") doesn't count. A yes/no
+poll with a time in the question ("Mincha 115") counts its yes votes for that time. A time that
+can't be right for the prayer ("2am" for Mincha) is flipped to PM, or dropped.
+
+**Not minyan polls** ("Who should make the mincha poll?", a pizza poll) have no time anywhere,
+so they're ignored.
 
 Polls posted before the bot joined the group aren't seen. Post a fresh one.
+
+## Free lunches
+
+Every 3 minyanim earns a free lunch at OKT (counted exactly like the TV's leaderboard, with the
+same code). Someone with a free lunch messages the bot **lunch** (or "free lunch", "meal"):
+
+- It uses up one lunch, and the Free lunches page on the TV goes down by one.
+- It replies with a link to a ticket (uclaminyan.com/lunch/#…) showing "Free lunch · OKT", their
+  name, today's date and a ticking clock. A screenshot doesn't tick. The ticket is good for 20
+  minutes; asking again in that time resends the same one.
+- With no lunch waiting, it says how many more minyanim until the next one.
+
+The bot answers nothing else, and only new messages (never old ones it reads when linking).
+Tickets need the `meals` read rule in `firebase/database.rules.json` published.
 
 ## Setup (about 20 minutes, once)
 
@@ -32,9 +63,10 @@ Polls posted before the bot joined the group aren't seen. Post a fresh one.
    Service accounts → Generate new private key. Keep the file private: it can change everything.
 3. **Rules.** Paste `firebase/database.rules.json` into Realtime Database → Rules → Publish.
 4. **Host it.** Free: a Google Cloud e2-micro server, step by step in [HOSTING-GCP.md](HOSTING-GCP.md).
-   Or on Railway (about $5 a month, least setup):
+   Or on Railway (about $5 a month, least setup; build from the repo root with `bot/Dockerfile`,
+   since the bot uses the site's counting code):
    - railway.com → New project → Deploy from GitHub repo → `jlic-ucla-tv`.
-   - Service → Settings → Root directory: `bot`.
+   - Service → Settings → Root directory: leave empty (the repo root); Dockerfile path: `bot/Dockerfile`.
    - Service → Variables:
      - `FIREBASE_SERVICE_ACCOUNT`: the whole contents of the key file from step 2
      - `WA_GROUP`: a word from the group's name (defaults to `minyan`)

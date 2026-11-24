@@ -1,0 +1,79 @@
+/* A ticket you hold up at the counter: one card, readable at arm's length. The striped band
+   and the seconds keep moving, which a screenshot can't do. */
+:root {
+  --ink: #1A1430;
+  --soft: #5E557A;
+  --purple: #2B1673;
+  --violet: #4B2BB8;
+  --gold: #F7D13D;
+  --paper: #FFFDF6;
+  --dead: #8C8798;
+  color-scheme: light;
+}
+* { box-sizing: border-box; margin: 0; }
+html, body { min-height: 100%; }
+body {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: max(20px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+  background: radial-gradient(120% 80% at 50% 0%, var(--violet), var(--purple) 70%);
+  font-family: Montserrat, system-ui, sans-serif;
+  color: var(--ink);
+}
+.ticket {
+  position: relative;
+  width: min(100%, 420px);
+  padding: 30px 26px 26px;
+  border-radius: 28px;
+  background: var(--paper);
+  box-shadow: 0 24px 60px rgba(10, 4, 40, .45);
+  overflow: hidden;
+  text-align: center;
+}
+.band {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 14px;
+  background: repeating-linear-gradient(-45deg, var(--gold) 0 16px, var(--purple) 16px 32px);
+  background-size: 45px 45px;
+  animation: slide 1.2s linear infinite;
+}
+@keyframes slide { to { background-position: 45px 0; } }
+.where { margin-top: 6px; font-size: 13px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--violet); }
+h1 { margin-top: 6px; font-size: clamp(40px, 13vw, 56px); font-weight: 800; letter-spacing: -.03em; line-height: 1; }
+.name { margin-top: 18px; font-size: clamp(28px, 9vw, 38px); font-weight: 700; letter-spacing: -.01em; }
+.date { margin-top: 4px; font-size: 18px; font-weight: 600; color: var(--soft); }
+.clock {
+  margin: 22px auto 0;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 2px;
+  padding: 12px 22px;
+  border-radius: 18px;
+  background: var(--purple);
+  color: #fff;
+  font-size: clamp(40px, 13vw, 54px);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -.02em;
+}
+.clock #sec { font-size: .55em; color: var(--gold); }
+.clock #ap { margin-left: 8px; font-size: .38em; font-weight: 600; }
+.until { margin-top: 14px; font-size: 16px; font-weight: 600; color: var(--violet); font-variant-numeric: tabular-nums; }
+.foot { margin-top: 18px; padding-top: 16px; border-top: 1px dashed rgba(43, 22, 115, .25); font-size: 14px; font-weight: 500; color: var(--soft); }
+
+/* Expired: grey, nothing moves. */
+.ticket.expired h1, .ticket.expired .name { color: var(--dead); }
+.ticket.expired .band { background: var(--dead); animation: none; }
+.ticket.expired .clock { background: var(--dead); }
+.ticket.expired .clock #sec { color: #fff; }
+.ticket.expired .until { color: #B3261E; }
+
+/* Loading, not found */
+.ticket.loading .state, .ticket.bad .state { font-size: 20px; font-weight: 700; }
+.ticket.bad .detail { margin-top: 8px; color: var(--soft); font-weight: 500; }
+
+@media (prefers-reduced-motion: reduce) {
+  .band { animation-duration: 4s; }
+}

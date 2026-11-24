@@ -71,6 +71,11 @@
       "status": {
         ".read": "auth != null && root.child('tvAdmins').child(auth.uid).exists()"
       }
+    },
+    "meals": {
+      "$ticket": {
+        ".read": true
+      }
     }
   }
 }

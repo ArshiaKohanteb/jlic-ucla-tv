@@ -5,7 +5,8 @@
 // A minyan with a `date` is a one-time minyan an admin set up for that day.
 // The count is everyone signed up on the site, plus any extras added by an admin.
 import { activeSpecial, localInfo, addDays, resolveTime, zonedEpoch, TIMEZONE } from "./schedule.js";
-import { signupList } from "./signups.js";
+import { signupList } from "./people.js";
+import { asList } from "./defaults.js";
 
 export const TEN = 10;
 const STILL_ON_MS = 45 * 60_000; // a minyan stays on the board this long after it starts
@@ -89,7 +90,10 @@ export function statusWords(o) {
   return { big: `${o.need * 10}% to go`, small };
 }
 
-const runsOn = (m, date) => (m.date ? m.date === date : (m.days || []).includes(weekdayOf(date)));
+// A minyan runs on its days, and also on any day it has a poll (the WhatsApp bot adds
+// Mincha, Mincha/Arvit or Arvit with no regular days, so they show only when polled).
+const runsOn = (m, date) => (m.date ? m.date === date : (m.days || []).includes(weekdayOf(date)))
+  || (m.live?.date === date && asList(m.live?.options).length > 0);
 
 // Every minyan in the coming days, soonest first.
 export function minyanCalendar(tv, z, now = Date.now(), tz = TIMEZONE, signups = {}, days = 8) {

@@ -1,6 +1,8 @@
 // Reads minyan polls in the WhatsApp group and adds each vote to the sign-ups, live,
 // so the site, dashboard and TV count WhatsApp and the site together.
 //
+// Also answers "lunch" in a direct message with a free-lunch ticket (lunch.js).
+//
 // It is a linked device on its own WhatsApp number (like WhatsApp Web). Link it from the
 // dashboard (Minyan → WhatsApp), which shows the code. Everything else is in README.md.
 import { createHash } from "node:crypto";
@@ -14,7 +16,8 @@ import makeWASocket, {
   isJidGroup, isLidUser, isPnUser, jidNormalizedUser, normalizeMessageContent,
 } from "@whiskeysockets/baileys";
 import { useDbAuthState } from "./auth.js";
-import { asList, choiceOf, dateOf, minyanFor, readOption, timesOf } from "./match.js";
+import { asList, choiceOf, kindName, minyanOf, readPoll } from "./match.js";
+import { asksForLunch, claimLunch, lunchReply } from "./lunch.js";
 
 const GROUP = (process.env.WA_GROUP || "minyan").toLowerCase();
 const PHONE = (process.env.WA_PHONE || "").replace(/\D/g, "");
@@ -71,36 +74,62 @@ const authors = (sock, key) => (key.fromMe ? meIds(sock) : [key.participant, key
 async function minyanim() {
   return (await db.ref("tv/minyanim").get()).val() || [];
 }
+const keyOf = (raw, id) => (Array.isArray(raw) ? raw.findIndex((x) => x?.id === id) : Object.keys(raw).find((k) => raw[k]?.id === id));
+
+// The site's minyan for a kind of prayer. One that isn't set up yet is added with no regular
+// days, so the TV only shows it on a day it has a poll; an admin can rename or schedule it.
+async function ensureMinyan(kind, date) {
+  let found = null;
+  await db.ref("tv/minyanim").transaction((cur) => {
+    const list = asList(cur);
+    found = minyanOf(kind, list, date);
+    if (found) return undefined;
+    found = { id: kind, name: kindName(kind), note: "", days: [], place: "", options: [], time: { type: "fixed", value: "" }, auto: true };
+    return [...list, found];
+  });
+  if (found?.auto) log.info({ minyan: found.name }, "added a minyan the site didn't have");
+  return found;
+}
 
 async function onPollCreated(sock, msg, poll) {
   const question = poll.name || "";
   const sentAt = Number(msg.messageTimestamp || 0) * 1000 || Date.now();
-  const raw = await minyanim();
-  const date = dateOf(question, sentAt, raw, (poll.options || []).map((o) => o.optionName || ""));
-  const m = minyanFor(question, raw, date);
   const options = (poll.options || []).map((o) => o.optionName || "");
+  const plan = readPoll(question, options, await minyanim(), sentAt);
   const record = {
-    question, date, sentAt, options,
-    minyanId: m?.id || null,
+    question, sentAt, options,
     creators: authors(sock, msg.key),
     secret: Buffer.from(msg.message?.messageContextInfo?.messageSecret || []).toString("base64"),
   };
-  await pollRef(msg.key.id).set(record);
-  if (!m) return log.info({ question }, "poll isn't about a minyan; ignoring it");
-  log.info({ question, minyan: m.name, date }, "minyan poll");
-  status({ lastPoll: `${question} (${m.name}, ${date})` });
+  if (!plan) {
+    await pollRef(msg.key.id).set(record);
+    return log.info({ question }, "poll isn't about a minyan; ignoring it");
+  }
 
-  // A poll with several times becomes the minyan's choices for that day.
-  const read = options.map((o) => readOption(o, timesOf(m, date), m.name));
-  const picks = read.filter((p) => p.time).map((p) => p.time);
-  const unread = options.filter((o, i) => read[i].yes);
-  if (picks.length && unread.length) log.warn({ question, options: unread }, "these options aren't times this minyan can be; votes for them won't count");
-  if (new Set(picks).size < 2) return;
-  const key = Array.isArray(raw) ? raw.findIndex((x) => x?.id === m.id) : Object.keys(raw).find((k) => raw[k]?.id === m.id);
-  await db.ref(`tv/minyanim/${key}/live`).transaction((live) => {
-    const mine = live?.date === date ? live : { date, state: "voting", count: 0 };
-    return { ...mine, options: [...new Set([...asList(mine.options), ...picks])].sort() };
-  });
+  // Each kind of prayer in the poll gets its minyan ("6:25 mincha/maariv" in a Mincha poll
+  // goes to Mincha/Arvit).
+  const kinds = [...new Set([plan.kind, ...plan.options.filter((o) => o.time).map((o) => o.kind)])];
+  const ids = {};
+  for (const k of kinds) ids[k] = (await ensureMinyan(k, plan.date)).id;
+  await pollRef(msg.key.id).set({ ...record, date: plan.date, kind: plan.kind, read: plan.options, minyanIds: ids, minyanId: ids[plan.kind] });
+
+  const unread = plan.options.filter((o) => o.yes).map((o) => o.text);
+  if (unread.length) log.warn({ question, options: unread }, "these options aren't times; votes for them won't count");
+  const names = kinds.map(kindName).join(" + ");
+  log.info({ question, minyan: names, date: plan.date, times: plan.options.filter((o) => o.time).map((o) => `${o.time} ${kindName(o.kind)}`) }, "minyan poll");
+  status({ lastPoll: `${question} (${names}, ${plan.date})` });
+
+  // The poll's times become each minyan's choices for that day.
+  const raw = await minyanim();
+  for (const k of kinds) {
+    const times = [...new Set(plan.options.filter((o) => o.kind === k && o.time).map((o) => o.time))];
+    const key = keyOf(raw, ids[k]);
+    if (!times.length || key == null || key === -1) continue;
+    await db.ref(`tv/minyanim/${key}/live`).transaction((live) => {
+      const mine = live?.date === plan.date ? live : { date: plan.date, state: "voting", count: 0 };
+      return { ...mine, options: [...new Set([...asList(mine.options), ...times])].sort() };
+    });
+  }
 }
 
 function decrypt(update, poll, voters) {
@@ -115,56 +144,81 @@ function decrypt(update, poll, voters) {
   return null;
 }
 
-async function onVote(sock, msg, update) {
-  const snap = await pollRef(update.pollCreationMessageKey.id).get();
-  const poll = snap.val();
-  if (!poll?.minyanId || !poll.secret) return;
-  const voters = authors(sock, msg.key);
-  const vote = decrypt(update, { ...poll, creators: asList(poll.creators) }, voters);
-  if (!vote) return log.warn({ poll: poll.question }, "couldn't read a vote");
-
-  const raw = await minyanim();
-  const m = asList(raw).find((x) => x.id === poll.minyanId);
-  if (!m) return;
-  const byHash = new Map(asList(poll.options).map((o) => [sha(o), readOption(o, timesOf(m, poll.date), m.name)]));
-  const timed = [...byHash.values()].some((p) => p.time);
-  const choice = choiceOf((vote.selectedOptions || []).map((h) => byHash.get(Buffer.from(h).toString("hex"))).filter(Boolean), timed);
-
-  // Their phone number, to match them to a site account.
-  let pn = voters.find(isPnUser);
-  const lid = voters.find(isLidUser);
+// Who a WhatsApp address is: their site account if the number matches one, otherwise a key
+// made from the number (never the number itself). Votes and lunch requests use the same key.
+async function personOf(sock, jids) {
+  let pn = jids.find(isPnUser);
+  const lid = jids.find(isLidUser);
   if (!pn && lid) pn = await sock.signalRepository.lidMapping.getPNForLID(lid).catch(() => null);
   const dir = await directory();
   const uid = pn ? dir.byPhone.get(digits(pn)) : null;
   const user = uid ? dir.users[uid] : null;
-  const key = uid || "wa_" + sha(digits(pn || lid || voters[0])).slice(0, 16);
-  const ref = db.ref(`signups/${poll.date}/${m.id}/${key}`);
-  const had = (await ref.get()).val();
-  const name = (user?.name || msg.pushName || had?.name || "Guest").trim().slice(0, 40);
+  return { key: uid || "wa_" + sha(digits(pn || lid || jids[0])).slice(0, 16), uid, user };
+}
 
-  if (!choice) {
-    if (had?.via === "whatsapp") await ref.remove();
-    log.info({ name, poll: poll.question }, "not coming");
-  } else {
-    const times = Object.fromEntries(choice.times.map((t) => [t, true]));
+// A direct message. The bot only answers "lunch"/"meal" (see lunch.js) and ignores the rest.
+async function onDirect(sock, msg, content) {
+  const text = content.conversation || content.extendedTextMessage?.text || "";
+  if (!asksForLunch(text)) return;
+  const jid = msg.key.remoteJid;
+  const { key } = await personOf(sock, [jid, msg.key.remoteJidAlt].filter(Boolean).map(jidNormalizedUser));
+  const result = await claimLunch(db, key);
+  await sock.sendMessage(jid, { text: lunchReply(result) });
+  log.info({ name: msg.pushName, ticket: !!result.ticket, again: !!result.again, left: result.left ?? result.row?.free ?? 0 }, "lunch request");
+}
+
+async function onVote(sock, msg, update) {
+  const snap = await pollRef(update.pollCreationMessageKey.id).get();
+  const poll = snap.val();
+  if (!poll?.read || !poll.secret) return;
+  const voters = authors(sock, msg.key);
+  const vote = decrypt(update, { ...poll, creators: asList(poll.creators) }, voters);
+  if (!vote) return log.warn({ poll: poll.question }, "couldn't read a vote");
+
+  const read = asList(poll.read);
+  const byHash = new Map(read.map((o) => [sha(o.text), o]));
+  const picked = (vote.selectedOptions || []).map((h) => byHash.get(Buffer.from(h).toString("hex"))).filter(Boolean);
+  const timed = read.some((o) => o.time);
+
+  const { key, uid, user } = await personOf(sock, voters);
+
+  // One sign-up per minyan in the poll: set where they picked a time, gone where they didn't.
+  let name = (user?.name || msg.pushName || "").trim().slice(0, 40);
+  const going = {};
+  for (const [kind, id] of Object.entries(poll.minyanIds || { [poll.kind]: poll.minyanId })) {
+    const ref = db.ref(`signups/${poll.date}/${id}/${key}`);
+    const had = (await ref.get()).val();
+    name = name || had?.name || "Guest";
+    const choice = choiceOf(picked.filter((p) => p.kind === kind), timed);
+    if (!choice) {
+      if (had?.via === "whatsapp") await ref.remove();
+      continue;
+    }
+    going[kindName(kind)] = choice.times;
     await ref.set(JSON.parse(JSON.stringify({
       ...had,
       name,
       at: had?.at || Date.now(),
       via: had ? had.via : "whatsapp",
       counts: had?.counts ?? (user ? user.counts !== false : undefined),
-      times: choice.times.length ? times : undefined,
+      times: choice.times.length ? Object.fromEntries(choice.times.map((t) => [t, true])) : undefined,
     })));
-    log.info({ name, times: choice.times, poll: poll.question }, "coming");
   }
+  log.info({ name, going, poll: poll.question }, Object.keys(going).length ? "coming" : "not coming");
   status({ lastVote: `${name} · ${poll.question}`, lastVoteAt: Date.now() });
 }
 
-async function handle(sock, msg) {
+async function handle(sock, msg, fresh = false) {
   try {
     const chat = msg.key?.remoteJid;
     const content = normalizeMessageContent(msg.message);
-    if (!content || !(await isMinyanGroup(sock, chat))) return;
+    if (!content) return;
+    // Lunch requests: only new messages (never ones replayed when the bot links), sent to it.
+    if (!isJidGroup(chat) && !msg.key.fromMe && (isPnUser(chat) || isLidUser(chat))) {
+      if (fresh && Number(msg.messageTimestamp || 0) * 1000 > Date.now() - 5 * 60_000) await onDirect(sock, msg, content);
+      return;
+    }
+    if (!(await isMinyanGroup(sock, chat))) return;
     if (Number(msg.messageTimestamp || 0) * 1000 < Date.now() - 3 * DAY) return;
     const poll = content.pollCreationMessage || content.pollCreationMessageV2 || content.pollCreationMessageV3 || content.pollCreationMessageV4 || content.pollCreationMessageV5;
     if (poll) return await onPollCreated(sock, { ...msg, message: { ...content, messageContextInfo: msg.message?.messageContextInfo || content.messageContextInfo } }, poll);
@@ -214,7 +268,7 @@ async function start() {
       setTimeout(start, code === DisconnectReason.loggedOut ? 1000 : 5000);
     }
   });
-  sock.ev.on("messages.upsert", async ({ messages }) => { for (const m of messages) await handle(sock, m); });
+  sock.ev.on("messages.upsert", async ({ messages, type }) => { for (const m of messages) await handle(sock, m, type === "notify"); });
   sock.ev.on("messaging-history.set", async ({ messages }) => {
     const recent = messages.filter((m) => Number(m.messageTimestamp || 0) * 1000 > Date.now() - 3 * DAY);
     recent.sort((a, b) => Number(a.messageTimestamp) - Number(b.messageTimestamp));

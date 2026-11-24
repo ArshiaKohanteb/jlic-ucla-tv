@@ -52,5 +52,4 @@ export function removeSignup(date, minyanId, uid) {
   return remove(ref(db, `signups/${date}/${minyanId}/${uid}`));
 }
 
-export const signupList = (signups, date, id) =>
-  Object.entries(signups?.[date]?.[id] || {}).map(([uid, v]) => ({ uid, ...v })).sort((a, b) => (a.at || 0) - (b.at || 0));
+export { signupList } from "./people.js";
