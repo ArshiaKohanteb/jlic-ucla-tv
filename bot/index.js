@@ -157,13 +157,26 @@ async function personOf(sock, jids) {
 }
 
 // A direct message. The bot only answers "lunch"/"meal" (see lunch.js) and ignores the rest.
+// It answers like a person would: reads the message, types for a moment, replies without a
+// link preview, and at most once a minute per person, so it looks less like an automated
+// account to WhatsApp.
+const lastReply = new Map();
+const pause = (ms) => new Promise((r) => setTimeout(r, ms));
 async function onDirect(sock, msg, content) {
   const text = content.conversation || content.extendedTextMessage?.text || "";
   if (!asksForLunch(text)) return;
   const jid = msg.key.remoteJid;
   const { key } = await personOf(sock, [jid, msg.key.remoteJidAlt].filter(Boolean).map(jidNormalizedUser));
+  if (Date.now() - (lastReply.get(key) || 0) < 60_000) return log.info({ name: msg.pushName }, "lunch request again within a minute; not answering");
+  lastReply.set(key, Date.now());
+
   const result = await claimLunch(db, key);
-  await sock.sendMessage(jid, { text: lunchReply(result) });
+  await pause(800 + Math.random() * 1200);
+  await sock.readMessages([msg.key]).catch(() => {});
+  await sock.sendPresenceUpdate("composing", jid).catch(() => {});
+  await pause(1500 + Math.random() * 2000);
+  await sock.sendPresenceUpdate("paused", jid).catch(() => {});
+  await sock.sendMessage(jid, { text: lunchReply(result), linkPreview: null });
   log.info({ name: msg.pushName, ticket: !!result.ticket, again: !!result.again, left: result.left ?? result.row?.free ?? 0 }, "lunch request");
 }
 
@@ -237,7 +250,8 @@ async function start() {
     auth: auth.state,
     version,
     logger: quiet,
-    browser: Browsers.macOS("UCLA Minyan"),
+    // Shows up like WhatsApp Desktop on a Mac, the most ordinary linked device.
+    browser: Browsers.macOS("Desktop"),
     markOnlineOnConnect: false,
     syncFullHistory: false,
     getMessage: async () => undefined,
