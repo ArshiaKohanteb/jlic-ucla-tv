@@ -183,9 +183,17 @@ export default function Board({ tv, z, sched, now, tz, minyanim, shabbatView, si
         <Logos />
         {shabbatView ? <ShabbatList sched={sched} tz={tz} /> : <Minyanim list={minyanim} tz={tz} now={now} />}
         {!shabbatView && (
-          <div className="signup">
-            <QR value={`https://${SITE}${checkIn ? "/?here" : "/vote"}`} label={checkIn ? "Check in" : `Vote at ${SITE}/vote`} />
-            {checkIn ? <p>Here?<br /><b>Scan to check in</b></p> : <p>Coming?<br /><b>{SITE}/vote</b></p>}
+          <div className="signups">
+            <div className="signup">
+              <QR value={`https://${SITE}${checkIn ? "/?here" : "/vote"}`} label={checkIn ? "Check in" : `Vote at ${SITE}/vote`} />
+              {checkIn ? <p>Here?<br /><b>Scan to check in</b></p> : <p>Coming?<br /><b>{SITE}/vote</b></p>}
+            </div>
+            {s.waInvite && (
+              <div className="signup">
+                <QR value={s.waInvite} label="Join the WhatsApp group" />
+                <p>Minyan chat<br /><b>Join on WhatsApp</b></p>
+              </div>
+            )}
           </div>
         )}
       </aside>
