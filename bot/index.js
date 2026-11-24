@@ -75,8 +75,8 @@ async function minyanim() {
 async function onPollCreated(sock, msg, poll) {
   const question = poll.name || "";
   const sentAt = Number(msg.messageTimestamp || 0) * 1000 || Date.now();
-  const date = dateOf(question, sentAt);
   const raw = await minyanim();
+  const date = dateOf(question, sentAt, raw, (poll.options || []).map((o) => o.optionName || ""));
   const m = minyanFor(question, raw, date);
   const options = (poll.options || []).map((o) => o.optionName || "");
   const record = {

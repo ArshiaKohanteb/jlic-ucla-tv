@@ -69,4 +69,7 @@ next time.
 - Gotcha on Windows: stopping `npm start` can leave `node index.js` running. Two bots on one
   login keep knocking each other off ("stream errored out") and the old one handles messages.
   Check for leftover `node index.js` processes before starting again.
-- Still open: a poll that names no day counts as tomorrow, even posted the same morning.
+- A poll that names no day used to count as tomorrow, even posted the same morning. Now it is
+  today if that minyan is still ahead today (by its times or the poll's), else tomorrow.
+  Retested at 1:10 PM: "Mincha?" (Mincha 1:45) went to today and the TV showed it as
+  "Today · Mincha"; "Shacharit Tomorrow" went to tomorrow.

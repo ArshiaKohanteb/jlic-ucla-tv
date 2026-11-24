@@ -59,13 +59,44 @@ function fits(t, hint) {
   return (mins >= w.from && mins < w.to) || (mins + 24 * 60 >= w.from && mins + 24 * 60 < w.to);
 }
 
-export function dateOf(question, sentAt) {
+const MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+const nowHHMM = (ms) => new Intl.DateTimeFormat("en-GB", { timeZone: TZ, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date(ms));
+
+// A day the question names: today/tonight, tomorrow (and its usual misspellings), a weekday,
+// or a date ("11/25", "Nov 25", "November 25th"). null when it names none.
+export function namedDate(question, sentAt) {
   const today = dayKey(sentAt);
   const q = question.toLowerCase();
   if (/\b(today|tonight|this (morning|afternoon|evening))\b/.test(q)) return today;
-  if (/\b(tomorrow|tmrw|tmr|tomorow)\b/.test(q)) return addDays(today, 1);
-  const named = DAYS.findIndex((d) => new RegExp(`\\b${d.slice(0, 3)}(${d.slice(3)})?\\b`).test(q));
-  if (named >= 0) return addDays(today, (named - weekday(today) + 7) % 7);
+  if (/\b(tmr|to?m+o?r+o?w+(?:'?s)?)\b/.test(q)) return addDays(today, 1);
+  const year = Number(today.slice(0, 4));
+  const on = (mo, d) => {
+    if (mo < 1 || mo > 12 || d < 1 || d > 31) return null;
+    // The coming one: a date more than a couple of months back means next year's.
+    let date = `${year}-${String(mo).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+    if (date < addDays(today, -60)) date = `${year + 1}${date.slice(4)}`;
+    return date;
+  };
+  const slash = q.match(/\b(\d{1,2})\/(\d{1,2})(?:\/\d{2,4})?\b/);
+  if (slash) { const d = on(Number(slash[1]), Number(slash[2])); if (d) return d; }
+  const named = q.match(new RegExp(`\\b(${MONTHS.join("|")})[a-z]*\\.?\\s+(\\d{1,2})(?:st|nd|rd|th)?\\b`));
+  if (named) { const d = on(MONTHS.indexOf(named[1]) + 1, Number(named[2])); if (d) return d; }
+  const day = DAYS.findIndex((d) => new RegExp(`\\b${d.slice(0, 3)}(${d.slice(3)})?\\b`).test(q));
+  if (day >= 0) return addDays(today, (day - weekday(today) + 7) % 7);
+  return null;
+}
+
+// The day a poll is about. With no day in it: today if that minyan is still ahead today
+// (by its times or the poll's own), otherwise tomorrow.
+export function dateOf(question, sentAt, minyanim = [], options = []) {
+  const named = namedDate(question, sentAt);
+  if (named) return named;
+  const today = dayKey(sentAt);
+  const m = minyanFor(question, minyanim, today);
+  if (m && runsOn(m, today)) {
+    const times = [...timesOf(m, today), ...options.map((o) => readOption(o, timesOf(m, today), m.name).time).filter(Boolean)];
+    if (times.some((t) => t > nowHHMM(sentAt))) return today;
+  }
   return addDays(today, 1);
 }
 
