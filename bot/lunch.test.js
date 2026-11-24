@@ -49,7 +49,7 @@ test("claiming lunches", async () => {
   assert.deepEqual(db.data.lunches.wa_me, { used: 1, name: "Etai T." });
   assert.equal(db.data.meals[first.ticket].short, "Etai T.");
   assert.equal(db.data.meals[first.ticket].expires, noon + TICKET_MINUTES * 60_000);
-  assert.match(lunchReply(first), /Show this at OKT:\n.*\/lunch\/#/);
+  assert.match(lunchReply(first, () => 0),/Show this at OKT:\n.*\/lunch\/#/);
 
   // Asking again while the ticket is good: the same ticket, no lunch used.
   const again = await claimLunch(db, "wa_me", noon + 5 * 60_000);
@@ -65,10 +65,10 @@ test("claiming lunches", async () => {
   // None left.
   const none = await claimLunch(db, "wa_me", noon + 60 * 60_000);
   assert.equal(none.ticket, undefined);
-  assert.equal(lunchReply(none), "No free lunch right now. 3 more minyanim to your next one (you've been to 6).");
+  assert.equal(lunchReply(none, () => 0), "No free lunch right now. 3 more minyanim to your next one (you've been to 6).");
 
   // Someone the bot has never seen.
-  assert.match(lunchReply(await claimLunch(db, "wa_new", noon)), /don't see any minyanim/);
+  assert.match(lunchReply(await claimLunch(db, "wa_new", noon), () => 0), /don't see any minyanim/);
 });
 
 test("extra lunches on top of the ones earned", async () => {

@@ -18,6 +18,7 @@ import makeWASocket, {
 import { useDbAuthState } from "./auth.js";
 import { asList, choiceOf, kindName, minyanOf, readPoll } from "./match.js";
 import { asksForLunch, claimLunch, lunchReply } from "./lunch.js";
+import { gapBetweenReplies, lingerDelay, readDelay, thinkDelay, typingPlan } from "./human.js";
 
 const GROUP = (process.env.WA_GROUP || "minyan").toLowerCase();
 const PHONE = (process.env.WA_PHONE || "").replace(/\D/g, "");
@@ -157,11 +158,15 @@ async function personOf(sock, jids) {
 }
 
 // A direct message. The bot only answers "lunch"/"meal" (see lunch.js) and ignores the rest.
-// It answers like a person would: reads the message, types for a moment, replies without a
-// link preview, and at most once a minute per person, so it looks less like an automated
-// account to WhatsApp.
+// It answers the way a person would (human.js): replies go out one at a time, a few seconds
+// apart; for each it comes online, opens the message after a while, types for about as long
+// as the reply takes (sometimes stopping for a moment), sends it without a link preview, and
+// goes offline again. At most one reply a minute per person.
 const lastReply = new Map();
 const pause = (ms) => new Promise((r) => setTimeout(r, ms));
+let replies = Promise.resolve();
+let lastSent = 0;
+let waiting = 0; // replies queued or being typed
 async function onDirect(sock, msg, content) {
   const text = content.conversation || content.extendedTextMessage?.text || "";
   if (!asksForLunch(text)) return;
@@ -170,14 +175,28 @@ async function onDirect(sock, msg, content) {
   if (Date.now() - (lastReply.get(key) || 0) < 60_000) return log.info({ name: msg.pushName }, "lunch request again within a minute; not answering");
   lastReply.set(key, Date.now());
 
+  // Use up the lunch now, so the count is right even while the reply waits its turn.
   const result = await claimLunch(db, key);
-  await pause(800 + Math.random() * 1200);
-  await sock.readMessages([msg.key]).catch(() => {});
-  await sock.sendPresenceUpdate("composing", jid).catch(() => {});
-  await pause(1500 + Math.random() * 2000);
-  await sock.sendPresenceUpdate("paused", jid).catch(() => {});
-  await sock.sendMessage(jid, { text: lunchReply(result), linkPreview: null });
-  log.info({ name: msg.pushName, ticket: !!result.ticket, again: !!result.again, left: result.left ?? result.row?.free ?? 0 }, "lunch request");
+  const reply = lunchReply(result);
+  waiting += 1;
+  replies = replies.then(async () => {
+    const gap = gapBetweenReplies() - (Date.now() - lastSent);
+    if (gap > 0) await pause(gap);
+    await pause(readDelay());
+    await sock.sendPresenceUpdate("available").catch(() => {});
+    await sock.readMessages([msg.key]).catch(() => {});
+    await pause(thinkDelay());
+    for (const step of typingPlan(reply)) {
+      await sock.sendPresenceUpdate(step.typing ? "composing" : "paused", jid).catch(() => {});
+      await pause(step.ms);
+    }
+    await sock.sendPresenceUpdate("paused", jid).catch(() => {});
+    await sock.sendMessage(jid, { text: reply, linkPreview: null });
+    lastSent = Date.now();
+    waiting -= 1;
+    log.info({ name: msg.pushName, ticket: !!result.ticket, again: !!result.again, left: result.left ?? result.row?.free ?? 0 }, "lunch request");
+    pause(lingerDelay()).then(() => { if (!waiting) sock.sendPresenceUpdate("unavailable").catch(() => {}); });
+  }).catch((e) => { waiting = Math.max(0, waiting - 1); log.error(e, "lunch reply"); });
 }
 
 async function onVote(sock, msg, update) {
