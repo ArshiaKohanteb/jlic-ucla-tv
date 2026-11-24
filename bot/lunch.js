@@ -36,7 +36,7 @@ export async function claimLunch(db, key, now = Date.now()) {
     const used = Math.max(0, Number(cur?.used) || 0);
     if (used >= row.earned) { took = false; return undefined; }
     took = true;
-    return { used: used + 1, name: row.short };
+    return { ...cur, used: used + 1, name: row.short };
   });
   if (!took) return { row: { ...row, free: 0 } };
 

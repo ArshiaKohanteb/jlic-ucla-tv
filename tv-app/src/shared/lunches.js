@@ -2,7 +2,7 @@
 // comes from the attendance log (shared/attendance.js), so it never resets. Lunches
 // handed out are kept at /lunches/{personKey} = { used, name }. The TV reads them
 // without an account, so they hold only the short display name.
-import { onValue, ref, set } from "firebase/database";
+import { onValue, ref, update } from "firebase/database";
 import { db } from "./firebase.js";
 import { isDemo } from "./store.js";
 
@@ -25,12 +25,13 @@ export function setLunchesUsed(key, name, used) {
   const value = used > 0 ? { used, name: String(name || "").slice(0, 40) } : null;
   if (isDemo()) {
     const all = readDemo();
-    if (value) all[key] = value; else delete all[key];
+    if (value || all[key]?.extra) all[key] = { ...all[key], used: Math.max(0, used), name: String(name || "").slice(0, 40) }; else delete all[key];
     localStorage.setItem(DEMO_KEY, JSON.stringify(all));
     window.dispatchEvent(new Event(DEMO_EVENT));
     return Promise.resolve();
   }
-  return set(ref(db, `lunches/${key}`), value);
+  // update, not set, so gifted lunches (extra) survive giving one out here.
+  return update(ref(db, `lunches/${key}`), { used: Math.max(0, used), name: String(name || "").slice(0, 40) });
 }
 
 export { PER_LUNCH, shortName, lunchBoard, leaders, lunchesWaiting } from "./tally.js";
