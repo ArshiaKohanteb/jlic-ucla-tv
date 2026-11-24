@@ -15,6 +15,18 @@ test("times", () => {
   assert.equal(timeIn("7:30", [], "Shacharit"), "07:30");
   assert.equal(timeIn("Yes"), null);
   assert.equal(timeIn("I'm in!"), null);
+  // Typos without the colon
+  assert.equal(timeIn("333 pm"), "15:33");
+  assert.equal(timeIn("1030", [], "Shacharit"), "10:30");
+  assert.equal(timeIn("730am"), "07:30");
+  assert.equal(timeIn("130", [], "Mincha"), "13:30");
+  // Times that can't be right for the minyan
+  assert.equal(timeIn("2am", [], "Mincha"), "14:00");
+  assert.equal(timeIn("11:00", [], "Mincha"), null);
+  assert.equal(timeIn("7pm", [], "Shacharit"), "07:00");
+  assert.equal(timeIn("3am", [], "Shacharit"), null);
+  assert.equal(timeIn("12:30 am", [], "Maariv"), "00:30");
+  assert.equal(timeIn("2am"), "02:00");
 });
 
 test("dates", () => {
@@ -44,4 +56,7 @@ test("options and choices", () => {
   assert.equal(choiceOf([]), null);
   assert.deepEqual(choiceOf([{ time: "09:00" }, { time: "08:00" }]), { times: ["08:00", "09:00"] });
   assert.deepEqual(choiceOf([{ yes: true }]), { times: [] });
+  // In a poll of times, an unreadable option doesn't count
+  assert.equal(choiceOf([{ yes: true }], true), null);
+  assert.deepEqual(choiceOf([{ yes: true }, { time: "13:00" }], true), { times: ["13:00"] });
 });

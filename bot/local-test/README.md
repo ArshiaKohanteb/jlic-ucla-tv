@@ -53,3 +53,20 @@ next time.
 - Harmless: right after linking, Baileys logs "failed to find key ... to decode mutation"
   (app-state sync) a few times.
 - Not tested here: reaching 10 real votes, the dashboard's link screen, and Railway.
+
+## Results (2026-11-24): 10 votes and messy options
+
+- With 9 pretend votes on 1:00 PM, a real vote made 10 and the TV switched to "We have a
+  minyan" with all 10 names; taking the vote back dropped it to 9 and back to the poll, within
+  about a second each way.
+- Options out of time order are fine: the TV sorts the columns.
+- Fixed, then retested with a Mincha poll of "11:00", "1", "333 pm", "2am":
+  - "333 pm" (no colon) wasn't read as a time. Now it is 3:33 PM ("1030", "730am" too).
+  - "2am" was taken as 2 AM for Mincha. Times that can't fit the prayer get AM/PM flipped if
+    that fits (2 PM), or are dropped ("11:00" for Mincha), with a warning in the log.
+  - A vote for an unreadable option was saved as "coming" with no time. In a poll of times
+    those picks no longer count.
+- Gotcha on Windows: stopping `npm start` can leave `node index.js` running. Two bots on one
+  login keep knocking each other off ("stream errored out") and the old one handles messages.
+  Check for leftover `node index.js` processes before starting again.
+- Still open: a poll that names no day counts as tomorrow, even posted the same morning.

@@ -91,7 +91,10 @@ async function onPollCreated(sock, msg, poll) {
   status({ lastPoll: `${question} (${m.name}, ${date})` });
 
   // A poll with several times becomes the minyan's choices for that day.
-  const picks = options.map((o) => readOption(o, timesOf(m, date), m.name)).filter((p) => p.time).map((p) => p.time);
+  const read = options.map((o) => readOption(o, timesOf(m, date), m.name));
+  const picks = read.filter((p) => p.time).map((p) => p.time);
+  const unread = options.filter((o, i) => read[i].yes);
+  if (picks.length && unread.length) log.warn({ question, options: unread }, "these options aren't times this minyan can be; votes for them won't count");
   if (new Set(picks).size < 2) return;
   const key = Array.isArray(raw) ? raw.findIndex((x) => x?.id === m.id) : Object.keys(raw).find((k) => raw[k]?.id === m.id);
   await db.ref(`tv/minyanim/${key}/live`).transaction((live) => {
@@ -124,7 +127,8 @@ async function onVote(sock, msg, update) {
   const m = asList(raw).find((x) => x.id === poll.minyanId);
   if (!m) return;
   const byHash = new Map(asList(poll.options).map((o) => [sha(o), readOption(o, timesOf(m, poll.date), m.name)]));
-  const choice = choiceOf((vote.selectedOptions || []).map((h) => byHash.get(Buffer.from(h).toString("hex"))).filter(Boolean));
+  const timed = [...byHash.values()].some((p) => p.time);
+  const choice = choiceOf((vote.selectedOptions || []).map((h) => byHash.get(Buffer.from(h).toString("hex"))).filter(Boolean), timed);
 
   // Their phone number, to match them to a site account.
   let pn = voters.find(isPnUser);
