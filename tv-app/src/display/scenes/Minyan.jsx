@@ -139,7 +139,8 @@ export function MinyanSlide({ slide, tv, now, tz, sched }) {
 
 // ── 3. Leaderboard: most minyanim first ──
 
-const nextWords = (r) => <span className={`lb-next ${r.toNext === 1 ? "close" : ""}`}>{r.toNext} to next lunch</span>;
+// The count, in gold, so it never reads as the rank.
+const countOf = (r) => <span className="lb-count"><b>{r.count}</b><span>{r.count === 1 ? "minyan" : "minyanim"}</span></span>;
 
 export function LeaderboardSlide({ slide }) {
   const rows = leaders(slide.rows).slice(0, 13);
@@ -154,16 +155,16 @@ export function LeaderboardSlide({ slide }) {
       <div className="lb-podium" style={{ gridTemplateColumns: `repeat(${top.length}, minmax(0, 1fr))` }}>
         {top.map((r, i) => (
           <div key={r.key} className={`mx-card lb-pod ${i === 0 ? "first" : ""}`}>
-            <span className="lb-rank">{i + 1}</span>
+            <span className={`lb-rank m${i + 1}`}>{i + 1}</span>
             <span className="lb-name">{r.short}</span>
-            <span className="lb-count"><span><b>{r.count}</b> {r.count === 1 ? "minyan" : "minyanim"}</span>{nextWords(r)}</span>
+            {countOf(r)}
           </div>
         ))}
       </div>
       {rest.length > 0 && (
         <div className="lb-rest">
           {rest.map((r, i) => (
-            <div key={r.key} className="lb-row"><span className="lb-r">{i + 4}</span><span className="lb-n">{r.short}</span><b>{r.count}</b>{nextWords(r)}</div>
+            <div key={r.key} className="lb-row"><span className="lb-r">{i + 4}</span><span className="lb-n">{r.short}</span>{countOf(r)}</div>
           ))}
         </div>
       )}
