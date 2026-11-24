@@ -87,17 +87,25 @@ export function shortName(name) {
   return /^\p{L}\.$/u.test(last) ? `${words[0]} ${last}` : `${words[0]} ${last[0].toUpperCase()}.`;
 }
 
-// stats.board (from buildStats) + /lunches → one row per person.
+// stats.board (from buildStats) + /lunches → one row per person. /lunches/{key}.extra is
+// lunches given on top of the ones earned (a gift, or a demo); someone with extra lunches
+// and no minyanim yet still gets a row.
 export function lunchBoard(board, lunches) {
-  return (board || []).map((p) => {
-    const earned = Math.floor(p.count / PER_LUNCH);
-    const used = Math.min(earned, Math.max(0, Number(lunches?.[p.key]?.used) || 0));
-    return { key: p.key, name: p.name, short: shortName(p.name), count: p.count, earned, used, free: earned - used, toNext: PER_LUNCH - (p.count % PER_LUNCH) };
-  });
+  const row = (key, name, count) => {
+    const l = lunches?.[key] || {};
+    const earned = Math.floor(count / PER_LUNCH) + Math.max(0, Math.floor(Number(l.extra) || 0));
+    const used = Math.min(earned, Math.max(0, Number(l.used) || 0));
+    return { key, name, short: shortName(name), count, earned, used, free: earned - used, toNext: PER_LUNCH - (count % PER_LUNCH) };
+  };
+  const rows = (board || []).map((p) => row(p.key, p.name, p.count));
+  for (const [key, l] of Object.entries(lunches || {})) {
+    if (Number(l?.extra) > 0 && !rows.some((r) => r.key === key)) rows.push(row(key, l.name || "Guest", 0));
+  }
+  return rows;
 }
 
 // Most minyanim first; ties go alphabetically.
-export const leaders = (rows) => [...rows].sort((a, b) => b.count - a.count || a.short.localeCompare(b.short));
+export const leaders = (rows) => rows.filter((r) => r.count > 0).sort((a, b) => b.count - a.count || a.short.localeCompare(b.short));
 
 // Everyone with a lunch to claim, A to Z.
 export const lunchesWaiting = (rows) => rows.filter((r) => r.free > 0).sort((a, b) => a.short.localeCompare(b.short));

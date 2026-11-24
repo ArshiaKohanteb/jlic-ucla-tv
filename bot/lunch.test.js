@@ -70,3 +70,20 @@ test("claiming lunches", async () => {
   // Someone the bot has never seen.
   assert.match(lunchReply(await claimLunch(db, "wa_new", noon)), /don't see any minyanim/);
 });
+
+test("extra lunches on top of the ones earned", async () => {
+  const noon = Date.parse("2026-11-24T12:00:00-08:00");
+  // No minyanim yet, 3 extra: three tickets, then none, and the extra stays.
+  const db = fakeDb({ ...minyanDays([]), lunches: { wa_me: { used: 0, name: "Etai T.", extra: 3 } } });
+  for (let i = 0; i < 3; i++) {
+    const r = await claimLunch(db, "wa_me", noon + i * 30 * 60_000);
+    assert.ok(r.ticket, `lunch ${i + 1}`);
+    assert.equal(r.left, 2 - i);
+  }
+  assert.deepEqual(db.data.lunches.wa_me, { used: 3, name: "Etai T.", extra: 3 });
+  assert.equal((await claimLunch(db, "wa_me", noon + 4 * 30 * 60_000)).ticket, undefined);
+
+  // With minyanim too: 6 minyanim (2) + 3 extra = 5.
+  const both = fakeDb({ ...minyanDays(["2026-11-09", "2026-11-10", "2026-11-11", "2026-11-12", "2026-11-16", "2026-11-17"]), lunches: { wa_me: { used: 0, name: "Etai T.", extra: 3 } } });
+  assert.equal((await claimLunch(both, "wa_me", noon)).left, 4);
+});
