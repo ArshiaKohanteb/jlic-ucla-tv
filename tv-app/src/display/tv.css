@@ -245,11 +245,20 @@ ul { list-style: none; }
 
 /* 4. Free lunches */
 .fl-total { text-align: right; }
+.fl-key { margin-top: 14px; display: flex; align-items: center; gap: 12px; font-size: 26px; font-weight: 500; color: var(--soft); }
+.fl-key b { display: inline-grid; place-items: center; min-width: 40px; height: 36px; padding: 0 10px; border-radius: 18px; background: var(--gold); color: #1A1430; font-size: 22px; font-weight: 700; }
+.fl-key i { margin-left: 22px; font-style: normal; font-size: 20px; font-weight: 600; padding: 4px 10px; border: 1.5px solid var(--line); border-radius: 16px; }
 .fl-total b { display: block; font-size: 96px; font-weight: 600; letter-spacing: -.04em; line-height: 1; color: var(--gold); }
 .fl-total span { font-size: 30px; color: var(--soft); font-weight: 500; }
 .fl-list { margin-top: 44px; columns: 4; column-gap: 56px; column-rule: 1px solid var(--line); column-fill: balance; max-height: 560px; }
 .fl-row { break-inside: avoid; display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 14px 0; border-bottom: 1px solid var(--line); font-size: 38px; font-weight: 500; white-space: nowrap; }
 .fl-row span { overflow: hidden; text-overflow: ellipsis; }
+/* Minyanim until their next lunch: a quiet outlined tag beside the gold count. */
+.fl-row span { flex: 1; min-width: 0; }
+.fl-row i { flex: none; font-style: normal; font-size: 22px; font-weight: 600; color: var(--soft); padding: 5px 12px; border: 1.5px solid var(--line); border-radius: 16px; }
+.fl-row i.close { color: var(--gold); border-color: rgba(247, 209, 61, .45); }
+.fl-list.dense .fl-row i { font-size: 18px; padding: 3px 9px; }
+.fl-list.denser .fl-row i { font-size: 16px; padding: 2px 7px; }
 .fl-row b { flex: none; display: inline-flex; align-items: center; justify-content: center; min-width: 58px; height: 48px; padding: 0 14px; border-radius: 24px; background: var(--gold); color: #1A1430; font-size: 30px; font-weight: 700; }
 .fl-list.dense .fl-row { padding: 6px 0; font-size: 30px; }
 .fl-list.dense .fl-row b { min-width: 46px; height: 38px; font-size: 24px; }

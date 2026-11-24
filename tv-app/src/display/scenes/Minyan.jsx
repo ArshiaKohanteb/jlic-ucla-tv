@@ -180,11 +180,12 @@ export function LunchesSlide({ slide }) {
   return (
     <div className="slide fl">
       <div className="mx-head">
-        <div><p className="mx-eyebrow">Ready to redeem</p><h1 className="mx-title">Free lunches</h1></div>
+        <div><p className="mx-eyebrow">Ready to redeem</p><h1 className="mx-title">Free lunches</h1>
+          <p className="fl-key"><b>2</b> lunches ready<i>1 to next</i> minyanim until the next one</p></div>
         <div className="fl-total"><b>{total}</b><span>{total === 1 ? "lunch" : "lunches"} waiting</span></div>
       </div>
       <div className={`fl-list ${rows.length > 44 ? "denser" : rows.length > 28 ? "dense" : ""}`}>
-        {rows.map((r) => <div key={r.key} className="fl-row"><span>{r.short}</span><b>{r.free}</b></div>)}
+        {rows.map((r) => <div key={r.key} className="fl-row"><span>{r.short}</span><i className={r.toNext === 1 ? "close" : ""}>{r.toNext} to next</i><b>{r.free}</b></div>)}
       </div>
     </div>
   );
