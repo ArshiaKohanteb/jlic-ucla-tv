@@ -41,6 +41,20 @@ so they're ignored.
 
 Polls posted before the bot joined the group aren't seen. Post a fresh one.
 
+## Free lunches
+
+Every 3 minyanim earns a free lunch at OKT (counted exactly like the TV's leaderboard, with the
+same code). Someone with a free lunch messages the bot **lunch** (or "free lunch", "meal"):
+
+- It uses up one lunch, and the Free lunches page on the TV goes down by one.
+- It replies with a link to a ticket (uclaminyan.com/lunch/#…) showing "Free lunch · OKT", their
+  name, today's date and a ticking clock. A screenshot doesn't tick. The ticket is good for 20
+  minutes; asking again in that time resends the same one.
+- With no lunch waiting, it says how many more minyanim until the next one.
+
+The bot answers nothing else, and only new messages (never old ones it reads when linking).
+Tickets need the `meals` read rule in `firebase/database.rules.json` published.
+
 ## Setup (about 20 minutes, once)
 
 1. **A number.** Get a spare number (a cheap prepaid SIM works; WhatsApp often rejects
@@ -49,9 +63,10 @@ Polls posted before the bot joined the group aren't seen. Post a fresh one.
    Service accounts → Generate new private key. Keep the file private: it can change everything.
 3. **Rules.** Paste `firebase/database.rules.json` into Realtime Database → Rules → Publish.
 4. **Host it.** Free: a Google Cloud e2-micro server, step by step in [HOSTING-GCP.md](HOSTING-GCP.md).
-   Or on Railway (about $5 a month, least setup):
+   Or on Railway (about $5 a month, least setup; build from the repo root with `bot/Dockerfile`,
+   since the bot uses the site's counting code):
    - railway.com → New project → Deploy from GitHub repo → `jlic-ucla-tv`.
-   - Service → Settings → Root directory: `bot`.
+   - Service → Settings → Root directory: leave empty (the repo root); Dockerfile path: `bot/Dockerfile`.
    - Service → Variables:
      - `FIREBASE_SERVICE_ACCOUNT`: the whole contents of the key file from step 2
      - `WA_GROUP`: a word from the group's name (defaults to `minyan`)

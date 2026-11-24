@@ -6,7 +6,6 @@ import { onValue, ref, set } from "firebase/database";
 import { db } from "./firebase.js";
 import { isDemo } from "./store.js";
 
-export const PER_LUNCH = 3;
 
 const DEMO_KEY = "jlic-lunches-demo";
 const DEMO_EVENT = "jlic-lunches-change";
@@ -34,27 +33,4 @@ export function setLunchesUsed(key, name, used) {
   return set(ref(db, `lunches/${key}`), value);
 }
 
-// "Etai Turgeman" → "Etai T.", "David ben Moshe Cohen" → "David C.". Emoji and
-// other decorations in WhatsApp names are dropped.
-export function shortName(name) {
-  const words = String(name || "").replace(/[^\p{L}\p{M}\s'.-]/gu, " ").split(/\s+/).filter((w) => /\p{L}/u.test(w));
-  if (!words.length) return String(name || "").trim() || "Guest";
-  if (words.length === 1) return words[0];
-  const last = words[words.length - 1];
-  return /^\p{L}\.$/u.test(last) ? `${words[0]} ${last}` : `${words[0]} ${last[0].toUpperCase()}.`;
-}
-
-// stats.board (from buildStats) + /lunches → one row per person.
-export function lunchBoard(board, lunches) {
-  return (board || []).map((p) => {
-    const earned = Math.floor(p.count / PER_LUNCH);
-    const used = Math.min(earned, Math.max(0, Number(lunches?.[p.key]?.used) || 0));
-    return { key: p.key, name: p.name, short: shortName(p.name), count: p.count, earned, used, free: earned - used, toNext: PER_LUNCH - (p.count % PER_LUNCH) };
-  });
-}
-
-// Most minyanim first; ties go alphabetically.
-export const leaders = (rows) => [...rows].sort((a, b) => b.count - a.count || a.short.localeCompare(b.short));
-
-// Everyone with a lunch to claim, A to Z.
-export const lunchesWaiting = (rows) => rows.filter((r) => r.free > 0).sort((a, b) => a.short.localeCompare(b.short));
+export { PER_LUNCH, shortName, lunchBoard, leaders, lunchesWaiting } from "./tally.js";

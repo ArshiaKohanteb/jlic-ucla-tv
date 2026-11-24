@@ -5,7 +5,7 @@
 // A minyan with a `date` is a one-time minyan an admin set up for that day.
 // The count is everyone signed up on the site, plus any extras added by an admin.
 import { activeSpecial, localInfo, addDays, resolveTime, zonedEpoch, TIMEZONE } from "./schedule.js";
-import { signupList } from "./signups.js";
+import { signupList } from "./people.js";
 import { asList } from "./defaults.js";
 
 export const TEN = 10;

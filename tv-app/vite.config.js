@@ -8,6 +8,7 @@ import { resolve } from "path";
 //   /tv/          → the TV display
 //   /tv/flipped/  → the display for an upside-down TV
 //   /admin/       → the manager dashboard
+//   /lunch/#…     → a free-lunch ticket the WhatsApp bot sends
 export default defineConfig({
   root: resolve(__dirname, "tv"),
   base: process.env.TV_BASE || "/",
@@ -22,6 +23,7 @@ export default defineConfig({
         display: resolve(__dirname, "tv/tv/index.html"),
         admin: resolve(__dirname, "tv/admin/index.html"),
         flipped: resolve(__dirname, "tv/tv/flipped/index.html"),
+        lunch: resolve(__dirname, "tv/lunch/index.html"),
       },
     },
   },

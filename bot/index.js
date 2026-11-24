@@ -1,6 +1,8 @@
 // Reads minyan polls in the WhatsApp group and adds each vote to the sign-ups, live,
 // so the site, dashboard and TV count WhatsApp and the site together.
 //
+// Also answers "lunch" in a direct message with a free-lunch ticket (lunch.js).
+//
 // It is a linked device on its own WhatsApp number (like WhatsApp Web). Link it from the
 // dashboard (Minyan → WhatsApp), which shows the code. Everything else is in README.md.
 import { createHash } from "node:crypto";
@@ -15,6 +17,7 @@ import makeWASocket, {
 } from "@whiskeysockets/baileys";
 import { useDbAuthState } from "./auth.js";
 import { asList, choiceOf, kindName, minyanOf, readPoll } from "./match.js";
+import { asksForLunch, claimLunch, lunchReply } from "./lunch.js";
 
 const GROUP = (process.env.WA_GROUP || "minyan").toLowerCase();
 const PHONE = (process.env.WA_PHONE || "").replace(/\D/g, "");
@@ -141,6 +144,29 @@ function decrypt(update, poll, voters) {
   return null;
 }
 
+// Who a WhatsApp address is: their site account if the number matches one, otherwise a key
+// made from the number (never the number itself). Votes and lunch requests use the same key.
+async function personOf(sock, jids) {
+  let pn = jids.find(isPnUser);
+  const lid = jids.find(isLidUser);
+  if (!pn && lid) pn = await sock.signalRepository.lidMapping.getPNForLID(lid).catch(() => null);
+  const dir = await directory();
+  const uid = pn ? dir.byPhone.get(digits(pn)) : null;
+  const user = uid ? dir.users[uid] : null;
+  return { key: uid || "wa_" + sha(digits(pn || lid || jids[0])).slice(0, 16), uid, user };
+}
+
+// A direct message. The bot only answers "lunch"/"meal" (see lunch.js) and ignores the rest.
+async function onDirect(sock, msg, content) {
+  const text = content.conversation || content.extendedTextMessage?.text || "";
+  if (!asksForLunch(text)) return;
+  const jid = msg.key.remoteJid;
+  const { key } = await personOf(sock, [jid, msg.key.remoteJidAlt].filter(Boolean).map(jidNormalizedUser));
+  const result = await claimLunch(db, key);
+  await sock.sendMessage(jid, { text: lunchReply(result) });
+  log.info({ name: msg.pushName, ticket: !!result.ticket, again: !!result.again, left: result.left ?? result.row?.free ?? 0 }, "lunch request");
+}
+
 async function onVote(sock, msg, update) {
   const snap = await pollRef(update.pollCreationMessageKey.id).get();
   const poll = snap.val();
@@ -154,14 +180,7 @@ async function onVote(sock, msg, update) {
   const picked = (vote.selectedOptions || []).map((h) => byHash.get(Buffer.from(h).toString("hex"))).filter(Boolean);
   const timed = read.some((o) => o.time);
 
-  // Their phone number, to match them to a site account.
-  let pn = voters.find(isPnUser);
-  const lid = voters.find(isLidUser);
-  if (!pn && lid) pn = await sock.signalRepository.lidMapping.getPNForLID(lid).catch(() => null);
-  const dir = await directory();
-  const uid = pn ? dir.byPhone.get(digits(pn)) : null;
-  const user = uid ? dir.users[uid] : null;
-  const key = uid || "wa_" + sha(digits(pn || lid || voters[0])).slice(0, 16);
+  const { key, uid, user } = await personOf(sock, voters);
 
   // One sign-up per minyan in the poll: set where they picked a time, gone where they didn't.
   let name = (user?.name || msg.pushName || "").trim().slice(0, 40);
@@ -189,11 +208,17 @@ async function onVote(sock, msg, update) {
   status({ lastVote: `${name} · ${poll.question}`, lastVoteAt: Date.now() });
 }
 
-async function handle(sock, msg) {
+async function handle(sock, msg, fresh = false) {
   try {
     const chat = msg.key?.remoteJid;
     const content = normalizeMessageContent(msg.message);
-    if (!content || !(await isMinyanGroup(sock, chat))) return;
+    if (!content) return;
+    // Lunch requests: only new messages (never ones replayed when the bot links), sent to it.
+    if (!isJidGroup(chat) && !msg.key.fromMe && (isPnUser(chat) || isLidUser(chat))) {
+      if (fresh && Number(msg.messageTimestamp || 0) * 1000 > Date.now() - 5 * 60_000) await onDirect(sock, msg, content);
+      return;
+    }
+    if (!(await isMinyanGroup(sock, chat))) return;
     if (Number(msg.messageTimestamp || 0) * 1000 < Date.now() - 3 * DAY) return;
     const poll = content.pollCreationMessage || content.pollCreationMessageV2 || content.pollCreationMessageV3 || content.pollCreationMessageV4 || content.pollCreationMessageV5;
     if (poll) return await onPollCreated(sock, { ...msg, message: { ...content, messageContextInfo: msg.message?.messageContextInfo || content.messageContextInfo } }, poll);
@@ -243,7 +268,7 @@ async function start() {
       setTimeout(start, code === DisconnectReason.loggedOut ? 1000 : 5000);
     }
   });
-  sock.ev.on("messages.upsert", async ({ messages }) => { for (const m of messages) await handle(sock, m); });
+  sock.ev.on("messages.upsert", async ({ messages, type }) => { for (const m of messages) await handle(sock, m, type === "notify"); });
   sock.ev.on("messaging-history.set", async ({ messages }) => {
     const recent = messages.filter((m) => Number(m.messageTimestamp || 0) * 1000 > Date.now() - 3 * DAY);
     recent.sort((a, b) => Number(a.messageTimestamp) - Number(b.messageTimestamp));
