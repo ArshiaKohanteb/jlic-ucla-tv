@@ -64,6 +64,8 @@ export function slideSeconds(slide, settings) {
   if (slide.kind === "shabbat") return settings.announcementSeconds || 12;
   if (slide.kind === "donate") return settings.announcementSeconds || 12;
   if (slide.kind === "logo") return settings.logoSeconds || 14;
+  if (slide.kind === "minyan") return settings.minyanSeconds || 18;
+  if (slide.kind === "leaderboard" || slide.kind === "lunches") return settings.leaderboardSeconds || 16;
   if (slide.kind === "community") return settings.communitySeconds || 16;
   if (slide.kind === "announcement") return slide.item.seconds || settings.announcementSeconds || 12;
   const custom = Math.max(...slide.items.map((f) => f.seconds || 0));

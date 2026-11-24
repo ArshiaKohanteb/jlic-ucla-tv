@@ -14,7 +14,8 @@ The site, dashboard and TV then count WhatsApp votes and site sign-ups together.
 ## How polls are read
 
 The poll's question says which minyan and day: "Shacharit tomorrow?", "Mincha today at 1:10?",
-"Thursday shacharis". With no day it means tomorrow. With no minyan named, it's the only minyan
+"Thursday shacharis", "Mincha 11/25". With no day it means today if that minyan is still
+ahead today, otherwise tomorrow. With no minyan named, it's the only minyan
 that day, or it's ignored (so a pizza poll does nothing).
 
 Options can be times ("8:00", "9 AM") or anything else. "No", "Can't", "Maybe" don't count.
@@ -30,7 +31,8 @@ Polls posted before the bot joined the group aren't seen. Post a fresh one.
 2. **A Firebase key.** Firebase console → `jlic-ucla-tv` → gear → Project settings →
    Service accounts → Generate new private key. Keep the file private: it can change everything.
 3. **Rules.** Paste `firebase/database.rules.json` into Realtime Database → Rules → Publish.
-4. **Host it on Railway** (about $5 a month, always on):
+4. **Host it.** Free: a Google Cloud e2-micro server, step by step in [HOSTING-GCP.md](HOSTING-GCP.md).
+   Or on Railway (about $5 a month, least setup):
    - railway.com → New project → Deploy from GitHub repo → `jlic-ucla-tv`.
    - Service → Settings → Root directory: `bot`.
    - Service → Variables:

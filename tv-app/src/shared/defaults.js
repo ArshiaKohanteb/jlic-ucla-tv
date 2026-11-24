@@ -76,6 +76,14 @@ export const DEFAULT_SETTINGS = {
     candleLighting: 20,
     tzeitMinutes: 30,
   },
+  // Minyan slides: the next minyan's poll (or who's coming), the leaderboard, free lunches
+  showMinyanSlide: true,
+  showLeaderboard: true,
+  showLunches: true,
+  minyanSeconds: 18,
+  leaderboardSeconds: 16,
+  // The WhatsApp group's invite link, for the QR on the poll slide
+  waInvite: "",
   // A poll reaching ten turns to "We're on" by itself
   autoConfirm: true,
   // Everyone on the site can see who signed up

@@ -1,11 +1,13 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Trophy, ListChecks, Plus, X, Trash2 } from "lucide-react";
+import { Trophy, ListChecks, Plus, X, Trash2, Utensils, Tv, Undo2 } from "lucide-react";
 import { Card, Button, Field, Stepper, Toggle, Tabs, ClockInput, todayKey } from "../ui.jsx";
 import Polls from "./Polls.jsx";
 import { uid } from "../../shared/defaults.js";
 import { subscribeAllSignups } from "../../shared/signups.js";
 import { subscribeAttendance, saveCorrection, buildLog, buildStats } from "../../shared/attendance.js";
 import { formatHHMM } from "../../shared/schedule.js";
+import { patchTv } from "../../shared/store.js";
+import { subscribeLunches, setLunchesUsed, lunchBoard, PER_LUNCH } from "../../shared/lunches.js";
 
 const niceDate = (date) => new Intl.DateTimeFormat("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" }).format(new Date(date + "T12:00:00Z"));
 
@@ -115,6 +117,62 @@ function Stats({ s }) {
   );
 }
 
+// What the TV shows from all this, and the WhatsApp link its poll slide points to.
+function OnTheTv({ tv }) {
+  const s = tv.settings;
+  const set = (patch) => patchTv("settings", patch);
+  const [invite, setInvite] = useState(s.waInvite || "");
+  useEffect(() => setInvite(s.waInvite || ""), [s.waInvite]);
+  const saveInvite = () => { const v = invite.trim(); if (v !== (s.waInvite || "")) set({ waInvite: v }); };
+  return (
+    <Card title="On the TV" subtitle="Slides that join the rotation" icon={Tv}>
+      <Toggle label="Next minyan" hint="Its poll, then who's coming once a time reaches ten" checked={s.showMinyanSlide !== false} onChange={(v) => set({ showMinyanSlide: v })} />
+      <Toggle label="Leaderboard" hint="Most minyanim first" checked={s.showLeaderboard !== false} onChange={(v) => set({ showLeaderboard: v })} />
+      <Toggle label="Free lunches" hint="Everyone with a lunch waiting, A to Z" checked={s.showLunches !== false} onChange={(v) => set({ showLunches: v })} />
+      <Field label="WhatsApp group invite link" hint="WhatsApp → the group → Invite via link → Copy. The poll slide's QR code opens it. Empty sends people to uclaminyan.com/vote.">
+        <input className="input" placeholder="https://chat.whatsapp.com/…" value={invite} onChange={(e) => setInvite(e.target.value)} onBlur={saveInvite} onKeyDown={(e) => e.key === "Enter" && saveInvite()} />
+      </Field>
+    </Card>
+  );
+}
+
+function Lunches({ tv, board }) {
+  const [lunches, setLunches] = useState({});
+  const [q, setQ] = useState("");
+  useEffect(() => subscribeLunches(setLunches), []);
+  const rows = useMemo(() => lunchBoard(board, lunches).sort((a, b) => b.free - a.free || a.name.localeCompare(b.name)), [board, lunches]);
+  const shown = rows.filter((r) => r.name.toLowerCase().includes(q.trim().toLowerCase()));
+  const waiting = rows.reduce((n, r) => n + r.free, 0);
+  const given = rows.reduce((n, r) => n + r.used, 0);
+  return (
+    <>
+      <div className="stat-tiles">
+        <Stat value={waiting} label="lunches waiting" />
+        <Stat value={given} label="lunches given" />
+        <Stat value={rows.filter((r) => r.free > 0).length} label="people with a lunch" />
+      </div>
+      <Card title="Free lunches" subtitle={`Every ${PER_LUNCH} minyanim earns one, and counts never reset. Tap Give when someone gets their lunch.`} icon={Utensils}>
+        <input className="input" placeholder="Search names" value={q} onChange={(e) => setQ(e.target.value)} />
+        {shown.length ? (
+          <table className="board-table lunch-table">
+            <thead><tr><th>Name</th><th>Minyanim</th><th>Earned</th><th>Given</th><th>Waiting</th><th /></tr></thead>
+            <tbody>{shown.map((r) => (
+              <tr key={r.key}>
+                <td>{r.name}</td><td>{r.count}</td><td>{r.earned}</td><td>{r.used}</td><td><b>{r.free}</b></td>
+                <td className="lunch-actions">
+                  {r.used > 0 && <button className="icon-btn" aria-label={`Undo a lunch for ${r.name}`} title="Undo" onClick={() => setLunchesUsed(r.key, r.name, r.used - 1)}><Undo2 size={16} /></button>}
+                  <Button variant={r.free ? "primary" : "secondary"} disabled={!r.free} onClick={() => setLunchesUsed(r.key, r.name, r.used + 1)}>Give</Button>
+                </td>
+              </tr>
+            ))}</tbody>
+          </table>
+        ) : <p className="empty-state">{rows.length ? "Nobody by that name." : "People show up here after their first minyan."}</p>}
+      </Card>
+      <OnTheTv tv={tv} />
+    </>
+  );
+}
+
 export default function Minyan({ tv, z }) {
   const [tab, setTab] = useState("live");
   const [signups, setSignups] = useState({});
@@ -131,10 +189,11 @@ export default function Minyan({ tv, z }) {
   }, [log]);
   return (
     <div className="stack">
-      <Tabs value={tab} onChange={setTab} options={[{ value: "live", label: "Polls" }, { value: "log", label: "Log" }, { value: "stats", label: "Stats" }]} />
+      <Tabs value={tab} onChange={setTab} options={[{ value: "live", label: "Polls" }, { value: "log", label: "Log" }, { value: "stats", label: "Stats" }, { value: "lunches", label: "Lunches" }]} />
       {tab === "live" && <Polls tv={tv} z={z} signups={signups} regulars={stats.board} />}
       {tab === "log" && <Log log={log} known={known} today={today} />}
       {tab === "stats" && <Stats s={stats} />}
+      {tab === "lunches" && <Lunches tv={tv} board={stats.board} />}
     </div>
   );
 }

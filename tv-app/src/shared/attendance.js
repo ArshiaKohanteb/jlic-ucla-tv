@@ -41,9 +41,12 @@ export function buildLog(tv, signups, attendance, today) {
   const log = [...keys].map((key) => {
     const [date, id] = key.split("|");
     const m = byId.get(id) || { id };
-    const live = liveFor(m, date);
     const a = attendance?.[date]?.[id] || {};
     const all = signupList(signups, date, id);
+    // Each minyan keeps only its latest day's poll times, so an older day's
+    // choices are read back from the times people voted for that day.
+    const voted = [...new Set(all.flatMap((p) => Object.keys(p.times || {})))];
+    const live = liveFor(m, date) || (voted.length ? { date, options: voted } : null);
     const { going, time } = pollOf(m, live, all);
     const here = all.filter((p) => p.here);
     const fixes = a.people || {};

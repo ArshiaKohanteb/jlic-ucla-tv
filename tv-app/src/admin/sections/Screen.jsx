@@ -125,16 +125,22 @@ function Rotation({ s, set }) {
           <Toggle label="Slides (announcements, Mazal Tov, sponsors)" checked={s.showSlides !== false} onChange={(v) => set({ showSlides: v })} />
           <Toggle label="Community collage" checked={s.showCommunity !== false} onChange={(v) => set({ showCommunity: v })} />
           <Toggle label="Donation slide" checked={s.showDonateSlide !== false} onChange={(v) => set({ showDonateSlide: v })} />
-          <Toggle label="Animated logo slide" hint="The logo appears between slides, once each loop" checked={s.showLogoSlide !== false} onChange={(v) => set({ showLogoSlide: v })} />
           <Toggle label="Pair vertical flyers side by side" checked={s.pairVerticalFlyers} onChange={(v) => set({ pairVerticalFlyers: v })} />
         </div>
       </Card>
-      <Card title="Timing" subtitle="The TV shows the times, then a few slides, then back to the times.">
+      <Card title="Order" subtitle="The TV repeats this loop. Anything that's off or empty is skipped.">
+        <ol className="loop-order">
+          <li>Times</li><li>Next minyan</li><li>A flyer or announcement, a different one each loop</li><li>Donate</li>
+          <li>Times</li><li>Next minyan</li><li>Leaderboard</li><li>Free lunches</li>
+        </ol>
+      </Card>
+      <Card title="Timing">
         <div className="grid-2">
           <Field label="Times screen"><Stepper value={s.scheduleSeconds} min={10} max={300} step={5} suffix="sec" onChange={(v) => set({ scheduleSeconds: v })} /></Field>
-          <Field label="Slides between times screens"><Stepper value={s.itemsBetween} min={1} max={10} onChange={(v) => set({ itemsBetween: v })} /></Field>
+          <Field label="Next minyan"><Stepper value={s.minyanSeconds || 18} min={5} max={120} suffix="sec" onChange={(v) => set({ minyanSeconds: v })} /></Field>
+          <Field label="Leaderboard and lunches"><Stepper value={s.leaderboardSeconds || 16} min={5} max={120} suffix="sec" onChange={(v) => set({ leaderboardSeconds: v })} /></Field>
           <Field label="Each flyer"><Stepper value={s.flyerSeconds} min={5} max={120} suffix="sec" onChange={(v) => set({ flyerSeconds: v })} /></Field>
-          <Field label="Each slide"><Stepper value={s.announcementSeconds} min={5} max={120} suffix="sec" onChange={(v) => set({ announcementSeconds: v })} /></Field>
+          <Field label="Each slide" hint="Announcements and Donate"><Stepper value={s.announcementSeconds} min={5} max={120} suffix="sec" onChange={(v) => set({ announcementSeconds: v })} /></Field>
           <Field label="Community collage"><Stepper value={s.communitySeconds || 16} min={8} max={60} step={2} suffix="sec" onChange={(v) => set({ communitySeconds: v })} /></Field>
         </div>
         <Field label="Stay on the times before a minyan" hint="Slides pause this many minutes before each minyan.">
@@ -144,9 +150,6 @@ function Rotation({ s, set }) {
       </Card>
       <Card title="Style">
         <div className="grid-2">
-          <Field label="Order">
-            <Segmented value={s.slideOrder || "inorder"} onChange={(v) => set({ slideOrder: v })} options={[{ value: "inorder", label: "In order" }, { value: "shuffle", label: "Shuffle" }]} />
-          </Field>
           <Field label="Transition">
             <Segmented value={s.transition || "fade"} onChange={(v) => set({ transition: v })} options={[{ value: "fade", label: "Fade" }, { value: "slide", label: "Slide" }, { value: "zoom", label: "Zoom" }, { value: "cut", label: "Cut" }]} />
           </Field>

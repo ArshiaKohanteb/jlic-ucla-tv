@@ -4,7 +4,10 @@
 // It is a linked device on its own WhatsApp number (like WhatsApp Web). Link it from the
 // dashboard (Minyan → WhatsApp), which shows the code. Everything else is in README.md.
 import { createHash } from "node:crypto";
-import admin from "firebase-admin";
+// firebase-admin 13+ only has the per-service imports (admin.database() is gone).
+import { initializeApp, cert } from "firebase-admin/app";
+import { getDatabase, ServerValue } from "firebase-admin/database";
+import { getAuth } from "firebase-admin/auth";
 import pino from "pino";
 import makeWASocket, {
   Browsers, DisconnectReason, decryptPollVote, fetchLatestBaileysVersion,
@@ -17,15 +20,18 @@ const GROUP = (process.env.WA_GROUP || "minyan").toLowerCase();
 const PHONE = (process.env.WA_PHONE || "").replace(/\D/g, "");
 const DAY = 86_400_000;
 
-admin.initializeApp({
-  credential: admin.credential.cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT || "{}")),
+// For a test on one computer: with FIREBASE_DATABASE_EMULATOR_HOST set (e.g. 127.0.0.1:9000)
+// it talks to the local database emulator instead, and needs no key.
+const EMULATOR = !!process.env.FIREBASE_DATABASE_EMULATOR_HOST;
+initializeApp({
+  ...(EMULATOR ? { projectId: "jlic-ucla-tv" } : { credential: cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT || "{}")) }),
   databaseURL: process.env.FIREBASE_DATABASE_URL || "https://jlic-ucla-tv.firebaseio.com",
 });
-const db = admin.database();
+const db = getDatabase();
 const log = pino({ level: process.env.LOG_LEVEL || "info" });
 const quiet = pino({ level: "warn" });
 
-const status = (patch) => db.ref("waBot/status").update({ ...patch, at: admin.database.ServerValue.TIMESTAMP }).catch((e) => log.warn(e, "status"));
+const status = (patch) => db.ref("waBot/status").update({ ...patch, at: ServerValue.TIMESTAMP }).catch((e) => log.warn(e, "status"));
 const sha = (s) => createHash("sha256").update(s).digest("hex");
 const digits = (jid) => (jid || "").split("@")[0].split(":")[0];
 
@@ -38,8 +44,9 @@ async function directory() {
   const users = (await db.ref("users").get()).val() || {};
   for (const [uid, u] of Object.entries(users)) if (u?.phone) byPhone.set(u.phone.replace(/\D/g, ""), uid);
   let page;
-  do {
-    page = await admin.auth().listUsers(1000, page?.pageToken);
+  // The local test has no sign-in accounts to look through.
+  if (!EMULATOR) do {
+    page = await getAuth().listUsers(1000, page?.pageToken);
     for (const u of page.users) if (u.phoneNumber) byPhone.set(u.phoneNumber.replace(/\D/g, ""), u.uid);
   } while (page.pageToken);
   people = { at: Date.now(), byPhone, users };
@@ -68,8 +75,8 @@ async function minyanim() {
 async function onPollCreated(sock, msg, poll) {
   const question = poll.name || "";
   const sentAt = Number(msg.messageTimestamp || 0) * 1000 || Date.now();
-  const date = dateOf(question, sentAt);
   const raw = await minyanim();
+  const date = dateOf(question, sentAt, raw, (poll.options || []).map((o) => o.optionName || ""));
   const m = minyanFor(question, raw, date);
   const options = (poll.options || []).map((o) => o.optionName || "");
   const record = {
@@ -84,7 +91,10 @@ async function onPollCreated(sock, msg, poll) {
   status({ lastPoll: `${question} (${m.name}, ${date})` });
 
   // A poll with several times becomes the minyan's choices for that day.
-  const picks = options.map((o) => readOption(o, timesOf(m, date), m.name)).filter((p) => p.time).map((p) => p.time);
+  const read = options.map((o) => readOption(o, timesOf(m, date), m.name));
+  const picks = read.filter((p) => p.time).map((p) => p.time);
+  const unread = options.filter((o, i) => read[i].yes);
+  if (picks.length && unread.length) log.warn({ question, options: unread }, "these options aren't times this minyan can be; votes for them won't count");
   if (new Set(picks).size < 2) return;
   const key = Array.isArray(raw) ? raw.findIndex((x) => x?.id === m.id) : Object.keys(raw).find((k) => raw[k]?.id === m.id);
   await db.ref(`tv/minyanim/${key}/live`).transaction((live) => {
@@ -117,7 +127,8 @@ async function onVote(sock, msg, update) {
   const m = asList(raw).find((x) => x.id === poll.minyanId);
   if (!m) return;
   const byHash = new Map(asList(poll.options).map((o) => [sha(o), readOption(o, timesOf(m, poll.date), m.name)]));
-  const choice = choiceOf((vote.selectedOptions || []).map((h) => byHash.get(Buffer.from(h).toString("hex"))).filter(Boolean));
+  const timed = [...byHash.values()].some((p) => p.time);
+  const choice = choiceOf((vote.selectedOptions || []).map((h) => byHash.get(Buffer.from(h).toString("hex"))).filter(Boolean), timed);
 
   // Their phone number, to match them to a site account.
   let pn = voters.find(isPnUser);

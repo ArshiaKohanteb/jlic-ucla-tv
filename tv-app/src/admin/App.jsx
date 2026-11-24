@@ -23,7 +23,7 @@ const lastEdit = (tv, page) => Object.entries(tv.edits || {})
 const NAV = [
   { group: "Content", items: [
     { id: "home", label: "Overview", icon: LayoutDashboard, blurb: "What's on the screen right now" },
-    { id: "minyan", area: "schedule", label: "Minyan", icon: Users, blurb: "Polls, who came and stats" },
+    { id: "minyan", area: "schedule", label: "Minyan", icon: Users, blurb: "Polls, who came, stats and lunches" },
     { id: "schedule", label: "Times", icon: Clock, blurb: "Shabbat and holiday schedules" },
     { id: "announcements", label: "Slides", icon: Megaphone, blurb: "Announcements, Mazal Tov and sponsors" },
     { id: "media", label: "Media", icon: Images, blurb: "Flyers and community photos" },

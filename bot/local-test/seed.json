@@ -1,0 +1,28 @@
+{
+  "settings": {
+    "shulName": "JLIC UCLA",
+    "donate": { "venmo": "@jlic-ucla" },
+    "waInvite": "",
+    "autoConfirm": true
+  },
+  "minyanim": [
+    {
+      "id": "shach",
+      "name": "Shacharit",
+      "note": "",
+      "days": [0, 1, 2, 3, 4, 5],
+      "place": "Main room",
+      "options": ["07:00", "07:30", "08:00", "08:30"],
+      "time": { "type": "fixed", "value": "07:00" }
+    },
+    {
+      "id": "mincha",
+      "name": "Mincha",
+      "note": "",
+      "days": [0, 1, 2, 3, 4],
+      "place": "Main room",
+      "options": ["13:45"],
+      "time": { "type": "fixed", "value": "13:45" }
+    }
+  ]
+}
