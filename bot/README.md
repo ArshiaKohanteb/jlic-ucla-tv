@@ -53,6 +53,18 @@ same code). Someone with a free lunch messages the bot **lunch** (or "free lunch
 - With no lunch waiting, it says how many more minyanim until the next one.
 
 The bot answers nothing else, and only new messages (never old ones it reads when linking).
+
+**Staying linked.** WhatsApp removes a linked device that "reaches out" from a newer account:
+sending in a private chat without the other person's privacy token, which WhatsApp gives when
+someone messages you. So the bot (see `safety.js` and `human.js`):
+- replies only if it holds that person's token (it waits up to 20 s for it to arrive), and
+  never while WhatsApp has the account in a "reach-out timelock" (WhatsApp tells it when);
+- answers like a person: opens the message after a few seconds, types for as long as the reply
+  takes, varies its wording, one reply at a time, at most one a minute per person;
+- uses up a lunch only when it actually replies.
+
+If the log says "no privacy token from this person yet" for everyone, set
+`LUNCH_NEEDS_TOKEN=off` in the service (`Environment=LUNCH_NEEDS_TOKEN=off`) and restart.
 Tickets need the `meals` read rule in `firebase/database.rules.json` published.
 
 ## Setup (about 20 minutes, once)
