@@ -19,6 +19,7 @@ import { useDbAuthState } from "./auth.js";
 import { asList, choiceOf, kindName, minyanOf, readPoll } from "./match.js";
 import { asksForLunch, claimLunch, lunchReply } from "./lunch.js";
 import { gapBetweenReplies, lingerDelay, readDelay, thinkDelay, typingPlan } from "./human.js";
+import { hasToken, lockActive } from "./safety.js";
 
 const GROUP = (process.env.WA_GROUP || "minyan").toLowerCase();
 const PHONE = (process.env.WA_PHONE || "").replace(/\D/g, "");
@@ -167,6 +168,10 @@ const pause = (ms) => new Promise((r) => setTimeout(r, ms));
 let replies = Promise.resolve();
 let lastSent = 0;
 let waiting = 0; // replies queued or being typed
+// LUNCH_NEEDS_TOKEN=off turns the privacy-token check off (if it turns out WhatsApp doesn't
+// hand the bot tokens and it stays quiet for everyone).
+const NEED_TOKEN = !/^(off|0|false|no)$/i.test(process.env.LUNCH_NEEDS_TOKEN || "");
+let reachout = null; // WhatsApp's reach-out timelock, as it last told us
 async function onDirect(sock, msg, content) {
   const text = content.conversation || content.extendedTextMessage?.text || "";
   if (!asksForLunch(text)) return;
@@ -175,28 +180,39 @@ async function onDirect(sock, msg, content) {
   if (Date.now() - (lastReply.get(key) || 0) < 60_000) return log.info({ name: msg.pushName }, "lunch request again within a minute; not answering");
   lastReply.set(key, Date.now());
 
-  // Use up the lunch now, so the count is right even while the reply waits its turn.
-  const result = await claimLunch(db, key);
-  const reply = lunchReply(result);
   waiting += 1;
   replies = replies.then(async () => {
-    const gap = gapBetweenReplies() - (Date.now() - lastSent);
-    if (gap > 0) await pause(gap);
-    await pause(readDelay());
-    await sock.sendPresenceUpdate("available").catch(() => {});
-    await sock.readMessages([msg.key]).catch(() => {});
-    await pause(thinkDelay());
-    for (const step of typingPlan(reply)) {
-      await sock.sendPresenceUpdate(step.typing ? "composing" : "paused", jid).catch(() => {});
-      await pause(step.ms);
+    try {
+      const gap = gapBetweenReplies() - (Date.now() - lastSent);
+      if (gap > 0) await pause(gap);
+      await pause(readDelay());
+      // Safeguards (safety.js): never send while WhatsApp has the account in a reach-out
+      // timelock, or to someone whose privacy token the bot doesn't have (that send is what
+      // gets a linked device removed). Nothing is used up when it stays quiet.
+      if (lockActive(reachout)) return log.warn({ name: msg.pushName, until: reachout.timeEnforcementEnds }, "WhatsApp reach-out timelock is on; not replying");
+      if (NEED_TOKEN && !(await hasToken(sock, [jid, msg.key.remoteJidAlt]))) {
+        lastReply.delete(key);
+        return log.warn({ name: msg.pushName }, "no privacy token from this person yet; not replying (they can ask again, or get one reply from the phone first)");
+      }
+      const result = await claimLunch(db, key);
+      const reply = lunchReply(result);
+      await sock.sendPresenceUpdate("available").catch(() => {});
+      await sock.readMessages([msg.key]).catch(() => {});
+      await pause(thinkDelay());
+      for (const step of typingPlan(reply)) {
+        await sock.sendPresenceUpdate(step.typing ? "composing" : "paused", jid).catch(() => {});
+        await pause(step.ms);
+      }
+      await sock.sendPresenceUpdate("paused", jid).catch(() => {});
+      if (lockActive(reachout)) return log.warn({ name: msg.pushName }, "reach-out timelock came on while typing; not sending");
+      await sock.sendMessage(jid, { text: reply, linkPreview: null });
+      lastSent = Date.now();
+      log.info({ name: msg.pushName, ticket: !!result.ticket, again: !!result.again, left: result.left ?? result.row?.free ?? 0 }, "lunch request");
+    } finally {
+      waiting -= 1;
+      pause(lingerDelay()).then(() => { if (!waiting) sock.sendPresenceUpdate("unavailable").catch(() => {}); });
     }
-    await sock.sendPresenceUpdate("paused", jid).catch(() => {});
-    await sock.sendMessage(jid, { text: reply, linkPreview: null });
-    lastSent = Date.now();
-    waiting -= 1;
-    log.info({ name: msg.pushName, ticket: !!result.ticket, again: !!result.again, left: result.left ?? result.row?.free ?? 0 }, "lunch request");
-    pause(lingerDelay()).then(() => { if (!waiting) sock.sendPresenceUpdate("unavailable").catch(() => {}); });
-  }).catch((e) => { waiting = Math.max(0, waiting - 1); log.error(e, "lunch reply"); });
+  }).catch((e) => log.error(e, "lunch reply"));
 }
 
 async function onVote(sock, msg, update) {
@@ -277,7 +293,13 @@ async function start() {
   });
   let asked = false;
   sock.ev.on("creds.update", auth.saveCreds);
-  sock.ev.on("connection.update", async ({ connection, lastDisconnect, qr }) => {
+  sock.ev.on("connection.update", async ({ connection, lastDisconnect, qr, reachoutTimeLock }) => {
+    if (reachoutTimeLock) {
+      reachout = reachoutTimeLock;
+      const until = reachoutTimeLock.timeEnforcementEnds ? new Date(reachoutTimeLock.timeEnforcementEnds).toISOString() : null;
+      log.warn({ active: !!reachoutTimeLock.isActive, until, type: reachoutTimeLock.enforcementType }, "WhatsApp reach-out timelock");
+      status({ reachout: reachoutTimeLock.isActive ? { until, type: reachoutTimeLock.enforcementType || null } : null });
+    }
     if (qr) {
       let code = null;
       if (PHONE && !asked) { asked = true; code = await sock.requestPairingCode(PHONE).catch(() => null); }
@@ -290,6 +312,8 @@ async function start() {
       const names = Object.values(groups).map((g) => g.subject).filter((s) => s.toLowerCase().includes(GROUP));
       status({ state: "online", qr: null, code: null, phone: digits(sock.user?.id), groups: names.length ? names : null });
       log.info({ groups: names }, "online");
+      // Ask WhatsApp up front whether the account is in a reach-out timelock.
+      sock.fetchAccountReachoutTimelock?.().catch(() => {});
     }
     if (connection === "close") {
       const code = lastDisconnect?.error?.output?.statusCode;
