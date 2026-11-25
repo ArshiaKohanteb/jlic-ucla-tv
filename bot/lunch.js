@@ -6,6 +6,7 @@
 import { randomBytes } from "node:crypto";
 import { buildLog, buildStats, lunchBoard } from "../tv-app/src/shared/tally.js";
 import { asList, dayKey } from "./match.js";
+import { pickOne } from "./human.js";
 
 export const TICKET_MINUTES = 20;
 const LUNCH_URL = process.env.LUNCH_URL || "https://uclaminyan.com/lunch/";
@@ -48,16 +49,54 @@ export async function claimLunch(db, key, now = Date.now()) {
   return { ticket, left, row };
 }
 
-export function lunchReply(result) {
+// Several wordings of each reply, picked at random (the first of each is the plain one), so
+// the bot doesn't send the same message word for word every time.
+export function lunchReply(result, rand = Math.random) {
   if (result.ticket) {
     const link = `${LUNCH_URL}#${result.ticket}`;
-    const more = result.left > 0 ? `\nYou have ${result.left} more after this one.` : "";
-    return result.again
-      ? `Here's your free lunch ticket again 🍽️\n${link}`
-      : `Free lunch 🍽️ Show this at OKT:\n${link}\nIt's good for the next ${TICKET_MINUTES} minutes.${more}`;
+    if (result.again) {
+      return pickOne([
+        `Here's your free lunch ticket again 🍽️
+${link}`,
+        `Same ticket as before, still good:
+${link}`,
+        `You already have one going, here it is:
+${link}`,
+      ], rand);
+    }
+    const more = result.left > 0
+      ? pickOne([`
+You have ${result.left} more after this one.`, `
+${result.left} more left after this.`, `
+Still ${result.left} more after this one.`], rand)
+      : "";
+    return pickOne([
+      `Free lunch 🍽️ Show this at OKT:
+${link}
+It's good for the next ${TICKET_MINUTES} minutes.${more}`,
+      `Enjoy lunch! Show this at OKT:
+${link}
+Good for ${TICKET_MINUTES} minutes.${more}`,
+      `Here's your free lunch 🍽️
+${link}
+Show it at OKT in the next ${TICKET_MINUTES} min.${more}`,
+      `Lunch is on us. Open this at OKT:
+${link}
+(valid ${TICKET_MINUTES} minutes)${more}`,
+    ], rand);
   }
   const r = result.row;
-  if (!r) return "I don't see any minyanim from this number yet. Every 3 minyanim you vote for in the group earn a free lunch at OKT.";
+  if (!r) {
+    return pickOne([
+      "I don't see any minyanim from this number yet. Every 3 minyanim you vote for in the group earn a free lunch at OKT.",
+      "No minyanim from this number yet. Every 3 you come to (vote in the group) earns a free lunch at OKT.",
+      "Nothing yet for this number. Vote in the group and come to minyan: every 3 earns a free lunch at OKT.",
+    ], rand);
+  }
   const n = r.toNext === 1 ? "1 more minyan" : `${r.toNext} more minyanim`;
-  return `No free lunch right now. ${n} to your next one (you've been to ${r.count}).`;
+  return pickOne([
+    `No free lunch right now. ${n} to your next one (you've been to ${r.count}).`,
+    `Not yet! ${n} to go until your next free lunch. You've been to ${r.count} so far.`,
+    `No lunch waiting right now. You've been to ${r.count}; ${n} and the next one's yours.`,
+  ], rand);
 }
